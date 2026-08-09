@@ -25,6 +25,10 @@
     .team-none { background:#9ca3af; }
     .yes { color:#16a34a; } .no { color:#dc2626; }
     .empty { text-align:center; padding: 40px; color:#999; }
+    .row-actions { display:flex; gap:6px; }
+    .resend-btn { background:#2563eb; color:#fff; border:none; border-radius:6px;
+                  padding:6px 12px; font-size:12px; cursor:pointer; white-space:nowrap; }
+    .resend-btn:hover { background:#1d4ed8; }
     .del-btn { background:#dc2626; color:#fff; border:none; border-radius:6px;
                padding:6px 12px; font-size:12px; cursor:pointer; }
     .del-btn:hover { background:#b91c1c; }
@@ -94,9 +98,14 @@
         <td>{{ p.registered_at.strftime('%d %b %Y, %H:%M') if p.registered_at else '—' }}</td>
         <td>{{ p.scanned_at.strftime('%d %b %Y, %H:%M') if p.scanned_at else '—' }}</td>
         <td class="{{ 'yes' if p.email_sent else 'no' }}">{{ 'Sent' if p.email_sent else 'Failed' }}</td>
-        <td>
+        <td class="row-actions">
+          {% if p.email and not p.email.endswith('@placeholder.local') %}
+          <form method="post" action="{{ url_for('admin_resend', participant_id=p.id) }}">
+            <button type="submit" class="resend-btn">Resend QR</button>
+          </form>
+          {% endif %}
           <form method="post" action="{{ url_for('admin_delete', participant_id=p.id) }}"
-                onsubmit="return confirm('Delete {{ p.name|e }} ({{ p.emp_id or 'no emp id' }})? This cannot be undone.');">
+                class="delete-form" data-name="{{ p.name }}" data-emp="{{ p.emp_id or 'no emp id' }}">
             <button type="submit" class="del-btn">Delete</button>
           </form>
         </td>
@@ -125,5 +134,20 @@
       <button type="submit">Add participant</button>
     </form>
   </div>
+
+  <script>
+    // Reads the name/emp-id from data attributes instead of interpolating
+    // them into an inline JS string, so names containing an apostrophe
+    // (e.g. O'Connor) can't break the confirm() call.
+    document.querySelectorAll('.delete-form').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        const name = form.dataset.name;
+        const emp = form.dataset.emp;
+        if (!confirm('Delete ' + name + ' (' + emp + ')? This cannot be undone.')) {
+          e.preventDefault();
+        }
+      });
+    });
+  </script>
 </body>
 </html>

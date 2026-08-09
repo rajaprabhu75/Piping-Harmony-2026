@@ -193,11 +193,9 @@ def register():
     phone = request.form.get('phone', '').strip()
 
     if not emp_id or not name or not email:
-        flash('Employee ID, name and email are required.', 'error')
         return redirect(url_for('index'))
 
     if Participant.query.filter_by(email=email).first():
-        flash('This email is already registered. Check your inbox for the QR code.', 'error')
         return redirect(url_for('index'))
 
     participant = Participant(
@@ -213,12 +211,6 @@ def register():
     sent = send_qr_email(participant)
     participant.email_sent = sent
     db.session.commit()
-
-    if sent:
-        flash(f'Registration successful! QR code sent to {email}.', 'success')
-    else:
-        flash('Registration saved, but the email could not be sent. '
-              'Check your MAIL_* settings in .env, or contact the organizers.', 'error')
 
     return redirect(url_for('index'))
 
@@ -343,11 +335,9 @@ def admin_add():
     team = team if team in TEAMS else None
 
     if not emp_id or not name:
-        flash('Employee ID and name are required to add a participant.', 'error')
         return redirect(url_for('admin'))
 
     if email and Participant.query.filter_by(email=email).first():
-        flash('A participant with that email already exists.', 'error')
         return redirect(url_for('admin'))
 
     participant = Participant(
@@ -368,9 +358,25 @@ def admin_add():
         sent = send_qr_email(participant)
         participant.email_sent = sent
         db.session.commit()
-        flash(f'Participant added and QR code sent to {email}.', 'success')
-    else:
-        flash('Participant added (no email provided, so no QR code was sent).', 'success')
+
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/resend/<int:participant_id>', methods=['POST'])
+@admin_required
+def admin_resend(participant_id):
+    """Re-sends the QR code email to a participant — for anyone whose first
+    email failed, or who just wants it again. Uses their existing unique_code,
+    so the QR still points to the same /scan/<code> link and won't create a
+    second, different code for the same person."""
+    participant = Participant.query.get_or_404(participant_id)
+
+    if not participant.email or participant.email.endswith('@placeholder.local'):
+        return redirect(url_for('admin'))
+
+    sent = send_qr_email(participant)
+    participant.email_sent = sent
+    db.session.commit()
 
     return redirect(url_for('admin'))
 
@@ -382,7 +388,6 @@ def admin_delete(participant_id):
     participant = Participant.query.get_or_404(participant_id)
     db.session.delete(participant)
     db.session.commit()
-    flash(f'Deleted {participant.name} from the database.', 'success')
     return redirect(url_for('admin'))
 
 
