@@ -28,9 +28,9 @@ app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME'))
 
 # ---------------- Event details (edit or set via .env) ----------------
-EVENT_NAME = os.environ.get('EVENT_NAME', 'Annual Tech Fest 2026')
-EVENT_DATE = os.environ.get('EVENT_DATE', 'August 15, 2026')
-EVENT_VENUE = os.environ.get('EVENT_VENUE', 'Main Auditorium')
+EVENT_NAME = os.environ.get('EVENT_NAME', 'Piping harmony 2026')
+EVENT_DATE = os.environ.get('EVENT_DATE', 'September 05, 2026')
+EVENT_VENUE = os.environ.get('EVENT_VENUE', 'Intercontinental,Chennai Mahabalipuram Road, Chennai, Tamil Nadu 600100')
 # BASE_URL must be reachable by whatever device/app the organizers use to scan.
 # For local testing http://127.0.0.1:5000 is fine. For a real event, deploy the
 # app (e.g. on a small VPS or ngrok tunnel) and put that public URL here.
