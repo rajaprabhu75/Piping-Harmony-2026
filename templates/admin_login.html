@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Organizer Login — {{ event_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#f4f5f7; margin:0; }
+    .card { max-width: 360px; margin: 90px auto; background:#fff; border-radius:10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 32px; }
+    h1 { font-size: 20px; margin-bottom: 20px; }
+    label { display:block; font-size: 13px; font-weight:bold; color:#333; }
+    input { width:100%; padding:10px; margin-top:6px; border:1px solid #ccc; border-radius:6px;
+            box-sizing:border-box; font-size:14px; }
+    button { margin-top: 18px; width:100%; padding:12px; background:#2563eb; color:#fff;
+             border:none; border-radius:6px; font-size:15px; cursor:pointer; }
+    button:hover { background:#1d4ed8; }
+    .flash.error { background:#fee2e2; color:#991b1b; padding:10px 14px; border-radius:6px;
+                   font-size:14px; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Organizer Login</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="post">
+      <label for="password">Admin password</label>
+      <input type="password" id="password" name="password" required autofocus>
+      <button type="submit">Log in</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Participant Data — {{ event_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#f4f5f7; margin:0; padding: 24px; }
+    .top { max-width: 1100px; margin: 0 auto 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+    h1 { font-size: 20px; margin:0; }
+    .links a { color:#2563eb; text-decoration:none; font-size:14px; margin-left: 14px; }
+    .summary { max-width: 1100px; margin: 0 auto 16px; display:flex; gap:10px; flex-wrap:wrap; }
+    .chip { background:#fff; border-radius:8px; padding:8px 14px; font-size:13px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .chip b { font-size:15px; }
+    .toolbar { max-width: 1100px; margin: 0 auto 16px; display:flex; gap:10px; flex-wrap:wrap; }
+    .toolbar input, .toolbar select { padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+    .toolbar button { padding:8px 16px; background:#2563eb; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+    table { max-width: 1100px; margin: 0 auto; width:100%; border-collapse: collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    th, td { padding: 10px 12px; text-align:left; font-size:13px; border-bottom: 1px solid #eee; }
+    th { background:#f9fafb; font-size:12px; text-transform:uppercase; color:#666; }
+    tr:last-child td { border-bottom:none; }
+    .team-tag { display:inline-block; padding:2px 9px; border-radius:12px; color:#fff; font-size:12px; font-weight:bold; }
+    .team-A { background:#2563eb; } .team-B { background:#16a34a; }
+    .team-C { background:#d97706; } .team-D { background:#dc2626; }
+    .team-none { background:#9ca3af; }
+    .yes { color:#16a34a; } .no { color:#dc2626; }
+    .empty { text-align:center; padding: 40px; color:#999; }
+    .del-btn { background:#dc2626; color:#fff; border:none; border-radius:6px;
+               padding:6px 12px; font-size:12px; cursor:pointer; }
+    .del-btn:hover { background:#b91c1c; }
+    .add-box { max-width: 1100px; margin: 24px auto 0; background:#fff; border-radius:10px;
+               padding: 20px 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .add-box h2 { font-size: 15px; margin: 0 0 14px; }
+    .add-form { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .add-form input, .add-form select { padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+    .add-form button { padding:8px 16px; background:#16a34a; color:#fff; border:none;
+                        border-radius:6px; cursor:pointer; font-size:14px; }
+    .add-form button:hover { background:#15803d; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1>{{ event_name }} — Participant Data</h1>
+    <div class="links">
+      <a href="{{ url_for('dashboard') }}">Live counts</a>
+      <a href="{{ url_for('scan_station') }}">Scan station</a>
+      <a href="{{ url_for('admin_logout') }}">Log out</a>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="chip">Total registered<br><b>{{ total }}</b></div>
+    {% for t in ['A','B','C','D'] %}
+      <div class="chip">Team {{ t }}<br><b>{{ team_counts[t] }}</b></div>
+    {% endfor %}
+  </div>
+
+  <form class="toolbar" method="get">
+    <input type="text" name="q" placeholder="Search name or email" value="{{ q }}">
+    <select name="team">
+      <option value="" {% if not team_filter %}selected{% endif %}>All teams</option>
+      <option value="A" {% if team_filter == 'A' %}selected{% endif %}>Team A</option>
+      <option value="B" {% if team_filter == 'B' %}selected{% endif %}>Team B</option>
+      <option value="C" {% if team_filter == 'C' %}selected{% endif %}>Team C</option>
+      <option value="D" {% if team_filter == 'D' %}selected{% endif %}>Team D</option>
+      <option value="UNASSIGNED" {% if team_filter == 'UNASSIGNED' %}selected{% endif %}>Not scanned yet</option>
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if participants %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Emp ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Team</th>
+        <th>Registered</th><th>Scanned</th><th>Email sent</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in participants %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.emp_id or '—' }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.email if not p.email.endswith('@placeholder.local') else '—' }}</td>
+        <td>{{ p.phone or '—' }}</td>
+        <td>
+          {% if p.team %}
+            <span class="team-tag team-{{ p.team }}">{{ p.team }}</span>
+          {% else %}
+            <span class="team-tag team-none">—</span>
+          {% endif %}
+        </td>
+        <td>{{ p.registered_at.strftime('%d %b %Y, %H:%M') if p.registered_at else '—' }}</td>
+        <td>{{ p.scanned_at.strftime('%d %b %Y, %H:%M') if p.scanned_at else '—' }}</td>
+        <td class="{{ 'yes' if p.email_sent else 'no' }}">{{ 'Sent' if p.email_sent else 'Failed' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('admin_delete', participant_id=p.id) }}"
+                onsubmit="return confirm('Delete {{ p.name|e }} ({{ p.emp_id or 'no emp id' }})? This cannot be undone.');">
+            <button type="submit" class="del-btn">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty">No participants match this filter.</div>
+  {% endif %}
+
+  <div class="add-box">
+    <h2>Add participant manually</h2>
+    <form class="add-form" method="post" action="{{ url_for('admin_add') }}">
+      <input type="text" name="emp_id" placeholder="Employee ID" required>
+      <input type="text" name="name" placeholder="Full name" required>
+      <input type="email" name="email" placeholder="Email (optional)">
+      <input type="tel" name="phone" placeholder="Phone (optional)">
+      <select name="team">
+        <option value="">No team yet</option>
+        <option value="A">Team A</option>
+        <option value="B">Team B</option>
+        <option value="C">Team C</option>
+        <option value="D">Team D</option>
+      </select>
+      <button type="submit">Add participant</button>
+    </form>
+  </div>
+</body>
+</html>

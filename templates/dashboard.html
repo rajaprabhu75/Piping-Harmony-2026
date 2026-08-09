@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Live Counts — {{ event_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#111827; color:#fff; margin:0; padding: 40px 20px; }
+    h1 { text-align:center; font-size: 22px; margin-bottom: 30px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:20px; max-width: 700px; margin: 0 auto; }
+    .team-card { border-radius: 12px; padding: 24px 10px; text-align:center; }
+    .team-A { background:#1d4ed8; }
+    .team-B { background:#15803d; }
+    .team-C { background:#b45309; }
+    .team-D { background:#b91c1c; }
+    .team-card .label { font-size:14px; opacity:0.85; }
+    .team-card .count { font-size: 40px; font-weight:bold; margin-top:6px; }
+    .footer { text-align:center; margin-top: 30px; font-size: 13px; color:#9ca3af; }
+  </style>
+</head>
+<body>
+  <h1>{{ event_name }} — Live Team Counts</h1>
+  <div class="grid" id="grid">
+    <div class="team-card team-A"><div class="label">Team A</div><div class="count" id="count-A">-</div></div>
+    <div class="team-card team-B"><div class="label">Team B</div><div class="count" id="count-B">-</div></div>
+    <div class="team-card team-C"><div class="label">Team C</div><div class="count" id="count-C">-</div></div>
+    <div class="team-card team-D"><div class="label">Team D</div><div class="count" id="count-D">-</div></div>
+  </div>
+  <div class="footer" id="footer">Loading...</div>
+  <div style="text-align:center; margin-top:16px;">
+    <a href="{{ url_for('scan_station') }}" style="color:#60a5fa; font-size:13px; margin-right:16px; text-decoration:none;">Scan station →</a>
+    <a href="{{ url_for('admin_login') }}" style="color:#60a5fa; font-size:13px; text-decoration:none;">Participant data →</a>
+  </div>
+
+  <script>
+    async function refresh() {
+      try {
+        const res = await fetch('/counts');
+        const data = await res.json();
+        ['A','B','C','D'].forEach(t => {
+          document.getElementById('count-' + t).textContent = data[t];
+        });
+        document.getElementById('footer').textContent =
+          `Registered: ${data.total_registered} | Scanned: ${data.total_scanned} | Not yet scanned: ${data.unscanned}`;
+      } catch (e) {
+        document.getElementById('footer').textContent = 'Failed to refresh counts.';
+      }
+    }
+    refresh();
+    setInterval(refresh, 4000); // auto-refresh every 4 seconds
+  </script>
+</body>
+</html>

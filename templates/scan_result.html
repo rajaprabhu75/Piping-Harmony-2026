@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Scan Result</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#f4f5f7; margin:0; }
+    .card { max-width: 380px; margin: 70px auto; background:#fff; border-radius:10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 36px; text-align:center; }
+    .team-badge { display:inline-block; font-size: 48px; font-weight:bold; color:#fff;
+                  width: 96px; height: 96px; line-height: 96px; border-radius: 50%; margin-bottom: 18px; }
+    .team-A { background:#2563eb; }
+    .team-B { background:#16a34a; }
+    .team-C { background:#d97706; }
+    .team-D { background:#dc2626; }
+    h2 { margin: 6px 0 4px; }
+    .status { font-size: 14px; color:#666; margin-bottom: 18px; }
+    .not-found { color:#991b1b; font-size: 18px; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if not found %}
+      <div class="not-found">❌ QR code not recognized.<br>Please check with the registration desk.</div>
+    {% else %}
+      <div class="team-badge team-{{ participant.team }}">{{ participant.team }}</div>
+      <h2>{{ participant.name }}</h2>
+      <div class="status">
+        {% if newly_assigned %}
+          ✅ Newly assigned to <strong>Team {{ participant.team }}</strong>
+        {% else %}
+          Already assigned to <strong>Team {{ participant.team }}</strong>
+        {% endif %}
+      </div>
+      <div style="font-size:12px;color:#999;">{{ participant.email }}</div>
+    {% endif %}
+  </div>
+</body>
+</html>
