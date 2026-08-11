@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 
 from functools import wraps
-from flask import Flask, request, redirect, url_for, render_template, jsonify, flash, session
+from flask import Flask, request, redirect, url_for, render_template, jsonify, flash, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 import qrcode
@@ -120,10 +120,9 @@ Date: {EVENT_DATE}
 Venue: {EVENT_VENUE}
 
 Your unique QR code is attached to this email. Please bring it (on your
-phone or printed) on event day. Any organizer, from any of the four teams,
-can scan it and you'll be automatically assigned to a team.
+phone or printed) on event day.
 
-Your registration code: {participant.unique_code}
+Your registration code: {participant.id}
 
 See you there!
 """
@@ -211,6 +210,12 @@ def register():
     sent = send_qr_email(participant)
     participant.email_sent = sent
     db.session.commit()
+
+    if sent:
+        flash(f'QR code sent to {email}. Check your inbox!', 'success')
+    else:
+        flash('Registered, but the confirmation email could not be sent. '
+              'Please contact the organizers.', 'error')
 
     return redirect(url_for('index'))
 
@@ -317,6 +322,36 @@ def admin():
         q=q,
         team_filter=team_filter,
         total=Participant.query.count(),
+    )
+
+
+@app.route('/admin/download-db')
+@admin_required
+def admin_download_db():
+    """Lets an organizer download a safe snapshot of the database straight
+    from the browser — no SSH key or terminal needed. Uses SQLite's own
+    backup API so it's consistent even while the live app is writing to it."""
+    import sqlite3
+    import tempfile
+
+    # Matches the relative path used by SQLALCHEMY_DATABASE_URI='sqlite:///event.db'
+    db_path = os.environ.get('DATABASE_URL', 'sqlite:///event.db').replace('sqlite:///', '')
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix='.db')
+    os.close(tmp_fd)
+
+    src = sqlite3.connect(db_path)
+    dst = sqlite3.connect(tmp_path)
+    src.backup(dst)
+    src.close()
+    dst.close()
+
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        tmp_path,
+        as_attachment=True,
+        download_name=f'event_backup_{timestamp}.db',
+        mimetype='application/x-sqlite3',
     )
 
 
