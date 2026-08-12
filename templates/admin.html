@@ -40,6 +40,10 @@
     .add-form button { padding:8px 16px; background:#16a34a; color:#fff; border:none;
                         border-radius:6px; cursor:pointer; font-size:14px; }
     .add-form button:hover { background:#15803d; }
+    .admin-flash { max-width: 1100px; margin: 0 auto 16px; padding: 10px 16px;
+                   border-radius: 8px; font-size: 14px; }
+    .admin-flash.success { background:#dcfce7; color:#166534; }
+    .admin-flash.error { background:#fee2e2; color:#991b1b; }
   </style>
 </head>
 <body>
@@ -52,6 +56,14 @@
       <a href="{{ url_for('admin_logout') }}">Log out</a>
     </div>
   </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="admin-flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
   <div class="summary">
     <div class="chip">Total registered<br><b>{{ total }}</b></div>
@@ -100,7 +112,7 @@
         <td>{{ p.scanned_at.strftime('%d %b %Y, %H:%M') if p.scanned_at else '—' }}</td>
         <td class="{{ 'yes' if p.email_sent else 'no' }}">{{ 'Sent' if p.email_sent else 'Failed' }}</td>
         <td class="row-actions">
-          {% if p.email and not p.email.endswith('@placeholder.local') %}
+          {% if p.email %}
           <form method="post" action="{{ url_for('admin_resend', participant_id=p.id) }}">
             <button type="submit" class="resend-btn">Resend QR</button>
           </form>
@@ -123,7 +135,7 @@
     <form class="add-form" method="post" action="{{ url_for('admin_add') }}">
       <input type="text" name="emp_id" placeholder="Employee ID" required>
       <input type="text" name="name" placeholder="Full name" required>
-      <input type="email" name="email" placeholder="Email (optional)">
+      <input type="email" name="email" placeholder="Email" required>
       <input type="tel" name="phone" placeholder="Phone (optional)">
       <select name="team">
         <option value="">No team yet</option>
@@ -133,6 +145,15 @@
         <option value="D">Team D</option>
       </select>
       <button type="submit">Add participant</button>
+    </form>
+  </div>
+
+  <div class="add-box">
+    <h2>Restore database from backup</h2>
+    <form class="add-form" method="post" action="{{ url_for('admin_upload_db') }}" enctype="multipart/form-data"
+          onsubmit="return confirm('This will replace the live database with the uploaded file. A safety backup of the current data is kept automatically, but continue?');">
+      <input type="file" name="db_file" accept=".db" required>
+      <button type="submit" style="background:#7c3aed;">Upload &amp; restore</button>
     </form>
   </div>
 

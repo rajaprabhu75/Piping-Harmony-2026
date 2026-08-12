@@ -8,6 +8,7 @@ from functools import wraps
 from flask import Flask, request, redirect, url_for, render_template, jsonify, flash, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
+from sqlalchemy.pool import NullPool
 import qrcode
 from dotenv import load_dotenv
 
@@ -17,6 +18,12 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-this-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///event.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# NullPool = no connection reuse. Without this, an already-open SQLite
+# connection can keep reading the OLD file's data after /admin/upload-db
+# replaces event.db on disk (the OS lets the old open handle keep pointing
+# at the old inode). Opening fresh every query guarantees we always see
+# whatever is actually on disk right now.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
 
 # ---------------- Mail configuration (set these in .env) ----------------
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -120,7 +127,8 @@ Date: {EVENT_DATE}
 Venue: {EVENT_VENUE}
 
 Your unique QR code is attached to this email. Please bring it (on your
-phone or printed) on event day.
+phone or printed) on event day. Any organizer, from any of the four teams,
+can scan it and you'll be automatically assigned to a team.
 
 Your registration code: {participant.id}
 
@@ -192,9 +200,11 @@ def register():
     phone = request.form.get('phone', '').strip()
 
     if not emp_id or not name or not email:
+        flash('Employee ID, name, and email are all required.', 'error')
         return redirect(url_for('index'))
 
     if Participant.query.filter_by(email=email).first():
+        flash('This email is already registered. Check your inbox for your QR code.', 'error')
         return redirect(url_for('index'))
 
     participant = Participant(
@@ -325,6 +335,68 @@ def admin():
     )
 
 
+@app.route('/admin/upload-db', methods=['POST'])
+@admin_required
+def admin_upload_db():
+    """Lets an organizer restore the database from a previously downloaded
+    backup, straight from the browser. The current live database is backed
+    up first (never silently overwritten without a safety copy)."""
+    import sqlite3
+    import tempfile
+
+    uploaded = request.files.get('db_file')
+    if not uploaded or uploaded.filename == '':
+        flash('No file selected.', 'error')
+        return redirect(url_for('admin'))
+
+    db_path = os.environ.get('DATABASE_URL', 'sqlite:///event.db').replace('sqlite:///', '')
+    db_path = os.path.abspath(db_path)
+
+    # Save the upload to a temp file first and verify it's a real, valid
+    # SQLite database with a participant table before touching anything live.
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix='.db')
+    os.close(tmp_fd)
+    uploaded.save(tmp_path)
+
+    try:
+        test_conn = sqlite3.connect(tmp_path)
+        count = test_conn.execute("SELECT COUNT(*) FROM participant").fetchone()[0]
+        test_conn.close()
+    except Exception as e:
+        os.remove(tmp_path)
+        flash(f'Upload rejected — not a valid database file ({e}).', 'error')
+        return redirect(url_for('admin'))
+
+    # Safety copy of what's currently live, timestamped, before overwriting.
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    safety_path = f"{db_path}.before_upload_{timestamp}.bak"
+    try:
+        if os.path.exists(db_path):
+            src = sqlite3.connect(db_path)
+            dst = sqlite3.connect(safety_path)
+            src.backup(dst)
+            src.close()
+            dst.close()
+    except Exception as e:
+        os.remove(tmp_path)
+        flash(f'Could not back up current database, aborted for safety ({e}).', 'error')
+        return redirect(url_for('admin'))
+
+    # All existing SQLAlchemy connections need to release the file first.
+    db.session.remove()
+    db.engine.dispose()
+
+    try:
+        os.replace(tmp_path, db_path)
+    except Exception as e:
+        flash(f'Upload saved but could not replace the live database ({e}). '
+              f'Check file permissions on {db_path}.', 'error')
+        return redirect(url_for('admin'))
+
+    flash(f'Database restored successfully — {count} participant record(s) loaded.', 'success')
+    return redirect(url_for('admin'))
+
+
 @app.route('/admin/download-db')
 @admin_required
 def admin_download_db():
@@ -336,6 +408,7 @@ def admin_download_db():
 
     # Matches the relative path used by SQLALCHEMY_DATABASE_URI='sqlite:///event.db'
     db_path = os.environ.get('DATABASE_URL', 'sqlite:///event.db').replace('sqlite:///', '')
+    db_path = os.path.abspath(db_path)
 
     tmp_fd, tmp_path = tempfile.mkstemp(suffix='.db')
     os.close(tmp_fd)
@@ -369,18 +442,18 @@ def admin_add():
     team = request.form.get('team', '').strip().upper()
     team = team if team in TEAMS else None
 
-    if not emp_id or not name:
+    if not emp_id or not name or not email:
+        flash('Employee ID, name, and email are all required (phone is optional).', 'error')
         return redirect(url_for('admin'))
 
-    if email and Participant.query.filter_by(email=email).first():
+    if Participant.query.filter_by(email=email).first():
+        flash('A participant with that email already exists.', 'error')
         return redirect(url_for('admin'))
 
     participant = Participant(
         emp_id=emp_id,
         name=name,
-        # a manually-added participant may not have an email; unique_code
-        # still needs a placeholder-free unique value regardless
-        email=email or f"no-email-{uuid.uuid4().hex[:8]}@placeholder.local",
+        email=email,
         phone=phone,
         unique_code=str(uuid.uuid4()),
         team=team,
@@ -389,10 +462,14 @@ def admin_add():
     db.session.add(participant)
     db.session.commit()
 
-    if email:
-        sent = send_qr_email(participant)
-        participant.email_sent = sent
-        db.session.commit()
+    sent = send_qr_email(participant)
+    participant.email_sent = sent
+    db.session.commit()
+
+    if sent:
+        flash(f'Participant added and QR code sent to {email}.', 'success')
+    else:
+        flash('Participant added, but the confirmation email could not be sent.', 'error')
 
     return redirect(url_for('admin'))
 
