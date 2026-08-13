@@ -69,6 +69,9 @@ class Participant(db.Model):
     registered_at = db.Column(db.DateTime, default=datetime.utcnow)
     scanned_at = db.Column(db.DateTime, nullable=True)
     email_sent = db.Column(db.Boolean, default=False)
+    question1 = db.Column(db.String(50), nullable=True)  # e.g. T-shirt size
+    question2 = db.Column(db.String(50), nullable=True)  # e.g. Food preference
+    question3 = db.Column(db.String(50), nullable=True)  # e.g. Session interest
 
     def to_dict(self):
         return {
@@ -91,9 +94,26 @@ with app.app_context():
         existing_cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(participant)")]
         if 'emp_id' not in existing_cols:
             conn.exec_driver_sql("ALTER TABLE participant ADD COLUMN emp_id VARCHAR(30)")
+        for qcol in ('question1', 'question2', 'question3'):
+            if qcol not in existing_cols:
+                conn.exec_driver_sql(f"ALTER TABLE participant ADD COLUMN {qcol} VARCHAR(50)")
 
 
-def generate_qr_image(data: str) -> io.BytesIO:
+def safe_filename_part(text: str) -> str:
+    """Turns a participant's name/emp_id into a filesystem-safe chunk for
+    use in a downloaded filename — strips anything that isn't a letter,
+    digit, space, hyphen, or underscore, then swaps spaces for underscores."""
+    cleaned = ''.join(c for c in text if c.isalnum() or c in (' ', '-', '_')).strip()
+    return cleaned.replace(' ', '_') or 'participant'
+
+
+def generate_qr_image(data: str, caption_top: str = None, caption_bottom: str = None) -> io.BytesIO:
+    """Generates a QR code. If caption_top/caption_bottom are given, the QR
+    is placed on a larger white card with that text printed above/below it
+    (e.g. event name on top, participant name on bottom) instead of being a
+    bare black-and-white square."""
+    from PIL import Image, ImageDraw, ImageFont
+
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -102,9 +122,48 @@ def generate_qr_image(data: str) -> io.BytesIO:
     )
     qr.add_data(data)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+    if not caption_top and not caption_bottom:
+        buf = io.BytesIO()
+        qr_img.save(buf, format='PNG')
+        buf.seek(0)
+        return buf
+
+    qr_w, qr_h = qr_img.size
+    pad = 40
+    top_h = 60 if caption_top else 0
+    bottom_h = 50 if caption_bottom else 0
+    card_w = qr_w + pad * 2
+    card_h = qr_h + pad * 2 + top_h + bottom_h
+
+    card = Image.new("RGB", (card_w, card_h), "white")
+    draw = ImageDraw.Draw(card)
+
+    try:
+        font_top = ImageFont.truetype("DejaVuSans-Bold.ttf", 26)
+        font_bottom = ImageFont.truetype("DejaVuSans.ttf", 20)
+    except Exception:
+        font_top = ImageFont.load_default()
+        font_bottom = ImageFont.load_default()
+
+    y = pad
+    if caption_top:
+        bbox = draw.textbbox((0, 0), caption_top, font=font_top)
+        text_w = bbox[2] - bbox[0]
+        draw.text(((card_w - text_w) / 2, y), caption_top, fill="#111827", font=font_top)
+        y += top_h
+
+    card.paste(qr_img, (pad, y))
+    y += qr_h + 10
+
+    if caption_bottom:
+        bbox = draw.textbbox((0, 0), caption_bottom, font=font_bottom)
+        text_w = bbox[2] - bbox[0]
+        draw.text(((card_w - text_w) / 2, y), caption_bottom, fill="#374151", font=font_bottom)
+
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    card.save(buf, format='PNG')
     buf.seek(0)
     return buf
 
@@ -113,7 +172,7 @@ def send_qr_email(participant: 'Participant') -> bool:
     """Emails the participant a QR code that encodes the /scan/<code> URL,
     so any organizer's phone camera / QR app can open it directly."""
     scan_url = f"{BASE_URL}/scan/{participant.unique_code}"
-    qr_buf = generate_qr_image(scan_url)
+    qr_buf = generate_qr_image(scan_url, caption_top=EVENT_NAME, caption_bottom=participant.name)
 
     subject = f"Your QR Code for {EVENT_NAME}"
     body = f"""Hi {participant.name},
@@ -198,6 +257,9 @@ def register():
     name = request.form.get('name', '').strip()
     email = request.form.get('email', '').strip().lower()
     phone = request.form.get('phone', '').strip()
+    question1 = request.form.get('question1', '').strip()
+    question2 = request.form.get('question2', '').strip()
+    question3 = request.form.get('question3', '').strip()
 
     if not emp_id or not name or not email:
         flash('Employee ID, name, and email are all required.', 'error')
@@ -213,6 +275,9 @@ def register():
         email=email,
         phone=phone,
         unique_code=str(uuid.uuid4()),
+        question1=question1 or None,
+        question2=question2 or None,
+        question3=question3 or None,
     )
     db.session.add(participant)
     db.session.commit()
@@ -320,6 +385,8 @@ def admin():
         query = query.filter_by(team=team_filter)
     elif team_filter == 'UNASSIGNED':
         query = query.filter(Participant.team.is_(None))
+    elif team_filter == 'SCANNED':
+        query = query.filter(Participant.scanned_at.isnot(None))
 
     participants = query.order_by(Participant.registered_at.desc()).all()
     team_counts = {t: Participant.query.filter_by(team=t).count() for t in TEAMS}
@@ -349,8 +416,12 @@ def admin_upload_db():
         flash('No file selected.', 'error')
         return redirect(url_for('admin'))
 
-    db_path = os.environ.get('DATABASE_URL', 'sqlite:///event.db').replace('sqlite:///', '')
-    db_path = os.path.abspath(db_path)
+    # IMPORTANT: don't reconstruct this path manually — Flask-SQLAlchemy
+    # resolves a relative 'sqlite:///event.db' URI against app.instance_path
+    # (an "instance/" subfolder), not the project root. Asking the engine
+    # directly guarantees we always touch the exact same file the live app
+    # is actually reading and writing.
+    db_path = db.engine.url.database
 
     # Save the upload to a temp file first and verify it's a real, valid
     # SQLite database with a participant table before touching anything live.
@@ -397,6 +468,177 @@ def admin_upload_db():
     return redirect(url_for('admin'))
 
 
+@app.route('/admin/edit/<int:participant_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit(participant_id):
+    """Lets an organizer correct a participant's details (typos in name/
+    email/phone/emp_id) or manually change their assigned team."""
+    participant = Participant.query.get_or_404(participant_id)
+
+    if request.method == 'POST':
+        emp_id = request.form.get('emp_id', '').strip()
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        phone = request.form.get('phone', '').strip()
+        question1 = request.form.get('question1', '').strip()
+        question2 = request.form.get('question2', '').strip()
+        question3 = request.form.get('question3', '').strip()
+        team = request.form.get('team', '').strip().upper()
+        team = team if team in TEAMS else None
+
+        if not emp_id or not name or not email or not question1 or not question2 or not question3:
+            flash('All fields are required except phone and team.', 'error')
+            return redirect(url_for('admin_edit', participant_id=participant.id))
+
+        existing = Participant.query.filter(
+            Participant.email == email, Participant.id != participant.id
+        ).first()
+        if existing:
+            flash('Another participant already uses that email.', 'error')
+            return redirect(url_for('admin_edit', participant_id=participant.id))
+
+        team_changed = participant.team != team
+
+        participant.emp_id = emp_id
+        participant.name = name
+        participant.email = email
+        participant.phone = phone
+        participant.question1 = question1
+        participant.question2 = question2
+        participant.question3 = question3
+        participant.team = team
+
+        # Keep scanned_at consistent with whether a team is actually set —
+        # so the "Scanned / checked in" filter stays accurate after a
+        # manual edit (e.g. clearing a team, or assigning one by hand).
+        if team and not participant.scanned_at:
+            participant.scanned_at = datetime.utcnow()
+        elif not team:
+            participant.scanned_at = None
+
+        db.session.commit()
+        flash(f'Updated {participant.name}.' + (' Team changed.' if team_changed else ''), 'success')
+        return redirect(url_for('admin'))
+
+    return render_template('admin_edit.html', event_name=EVENT_NAME, participant=participant, teams=TEAMS)
+
+
+@app.route('/admin/qr/<int:participant_id>')
+@admin_required
+def admin_download_qr(participant_id):
+    """Downloads one participant's QR code as a PNG, named after them —
+    e.g. for reprinting a lost QR or handing it out at a walk-in desk."""
+    participant = Participant.query.get_or_404(participant_id)
+    scan_url = f"{BASE_URL}/scan/{participant.unique_code}"
+    qr_buf = generate_qr_image(scan_url, caption_top=EVENT_NAME, caption_bottom=participant.name)
+
+    name_part = safe_filename_part(participant.name)
+    emp_part = safe_filename_part(participant.emp_id or str(participant.id))
+    filename = f"{emp_part}_{name_part}_QR.png"
+
+    return send_file(qr_buf, as_attachment=True, download_name=filename, mimetype='image/png')
+
+
+@app.route('/admin/qr-all')
+@admin_required
+def admin_download_all_qr():
+    """Downloads every participant's QR code at once as a single ZIP file,
+    each PNG named after that participant."""
+    import zipfile
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        used_names = set()
+        for participant in Participant.query.order_by(Participant.id).all():
+            scan_url = f"{BASE_URL}/scan/{participant.unique_code}"
+            qr_buf = generate_qr_image(scan_url, caption_top=EVENT_NAME, caption_bottom=participant.name)
+
+            name_part = safe_filename_part(participant.name)
+            emp_part = safe_filename_part(participant.emp_id or str(participant.id))
+            filename = f"{emp_part}_{name_part}_QR.png"
+
+            # guard against two participants producing the same filename
+            final_name = filename
+            counter = 2
+            while final_name in used_names:
+                final_name = f"{emp_part}_{name_part}_QR_{counter}.png"
+                counter += 1
+            used_names.add(final_name)
+
+            zf.writestr(final_name, qr_buf.read())
+
+    zip_buf.seek(0)
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        zip_buf,
+        as_attachment=True,
+        download_name=f'all_qr_codes_{timestamp}.zip',
+        mimetype='application/zip',
+    )
+
+
+@app.route('/admin/export-excel')
+@admin_required
+def admin_export_excel():
+    """Exports all participant data as a formatted .xlsx file — easier to
+    share with organizers who want to filter/sort in Excel rather than
+    working from the raw .db file."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Participants"
+
+    headers = ['#', 'Emp ID', 'Name', 'Email', 'Phone', 'Team',
+               'T-Shirt Size', 'Food Preference', 'Session Interest',
+               'Registered At', 'Scanned At', 'Email Sent']
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    participants = Participant.query.order_by(Participant.id).all()
+    for p in participants:
+        email = p.email if not p.email.endswith('@placeholder.local') else ''
+        ws.append([
+            p.id,
+            p.emp_id or '',
+            p.name,
+            email,
+            p.phone or '',
+            p.team or 'Unassigned',
+            p.question1 or '',
+            p.question2 or '',
+            p.question3 or '',
+            p.registered_at.strftime('%d %b %Y, %H:%M') if p.registered_at else '',
+            p.scanned_at.strftime('%d %b %Y, %H:%M') if p.scanned_at else '',
+            'Sent' if p.email_sent else 'Not sent',
+        ])
+
+    widths = [5, 14, 22, 28, 15, 10, 12, 16, 16, 20, 20, 12]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f'participants_{timestamp}.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
 @app.route('/admin/download-db')
 @admin_required
 def admin_download_db():
@@ -406,9 +648,12 @@ def admin_download_db():
     import sqlite3
     import tempfile
 
-    # Matches the relative path used by SQLALCHEMY_DATABASE_URI='sqlite:///event.db'
-    db_path = os.environ.get('DATABASE_URL', 'sqlite:///event.db').replace('sqlite:///', '')
-    db_path = os.path.abspath(db_path)
+    # IMPORTANT: don't reconstruct this path manually — Flask-SQLAlchemy
+    # resolves a relative 'sqlite:///event.db' URI against app.instance_path
+    # (an "instance/" subfolder), not the project root. Asking the engine
+    # directly guarantees we always touch the exact same file the live app
+    # is actually reading and writing.
+    db_path = db.engine.url.database
 
     tmp_fd, tmp_path = tempfile.mkstemp(suffix='.db')
     os.close(tmp_fd)
@@ -439,11 +684,14 @@ def admin_add():
     name = request.form.get('name', '').strip()
     email = request.form.get('email', '').strip().lower()
     phone = request.form.get('phone', '').strip()
+    question1 = request.form.get('question1', '').strip()
+    question2 = request.form.get('question2', '').strip()
+    question3 = request.form.get('question3', '').strip()
     team = request.form.get('team', '').strip().upper()
     team = team if team in TEAMS else None
 
-    if not emp_id or not name or not email:
-        flash('Employee ID, name, and email are all required (phone is optional).', 'error')
+    if not emp_id or not name or not email or not question1 or not question2 or not question3:
+        flash('All fields are required except phone and team.', 'error')
         return redirect(url_for('admin'))
 
     if Participant.query.filter_by(email=email).first():
@@ -458,6 +706,9 @@ def admin_add():
         unique_code=str(uuid.uuid4()),
         team=team,
         scanned_at=datetime.utcnow() if team else None,
+        question1=question1,
+        question2=question2,
+        question3=question3,
     )
     db.session.add(participant)
     db.session.commit()

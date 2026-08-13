@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Edit Participant — {{ event_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#f4f5f7; margin:0; padding: 24px; }
+    .card { max-width: 480px; margin: 40px auto; background:#fff; border-radius:10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 32px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color:#666; font-size: 13px; margin-bottom: 22px; }
+    label { display:block; margin-top: 14px; font-size: 13px; font-weight:bold; color:#333; }
+    input, select { width:100%; padding:10px; margin-top:6px; border:1px solid #ccc; border-radius:6px;
+            box-sizing:border-box; font-size:14px; }
+    .actions { display:flex; gap:10px; margin-top: 24px; }
+    button { flex:1; padding:12px; border:none; border-radius:6px; font-size:15px; cursor:pointer; }
+    .save-btn { background:#2563eb; color:#fff; }
+    .save-btn:hover { background:#1d4ed8; }
+    .cancel-link { flex:1; text-align:center; padding:12px; border-radius:6px; font-size:15px;
+                   text-decoration:none; color:#333; background:#eee; }
+    .cancel-link:hover { background:#e2e2e2; }
+    .admin-flash { padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:14px; }
+    .admin-flash.success { background:#dcfce7; color:#166534; }
+    .admin-flash.error { background:#fee2e2; color:#991b1b; }
+    .meta { font-size: 12px; color:#999; margin-top: 20px; border-top:1px solid #eee; padding-top:14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Edit Participant</h1>
+    <div class="sub">Correct details or manually change their team.</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="admin-flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      <label for="emp_id">Employee ID</label>
+      <input type="text" id="emp_id" name="emp_id" value="{{ participant.emp_id or '' }}" required>
+
+      <label for="name">Full name</label>
+      <input type="text" id="name" name="name" value="{{ participant.name }}" required>
+
+      <label for="email">Email address</label>
+      <input type="email" id="email" name="email" value="{{ participant.email }}" required>
+
+      <label for="phone">Phone (optional)</label>
+      <input type="tel" id="phone" name="phone" value="{{ participant.phone or '' }}">
+
+      <label for="question1">T-shirt size</label>
+      <select id="question1" name="question1" required>
+        <option value="" disabled {% if not participant.question1 %}selected{% endif %}>Select one</option>
+        {% for opt in ['S', 'M', 'L', 'XL'] %}
+          <option value="{{ opt }}" {% if participant.question1 == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="question2">Food preference</label>
+      <select id="question2" name="question2" required>
+        <option value="" disabled {% if not participant.question2 %}selected{% endif %}>Select one</option>
+        {% for opt in ['Vegetarian', 'Non-Vegetarian', 'Vegan'] %}
+          <option value="{{ opt }}" {% if participant.question2 == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="question3">Session interest</label>
+      <select id="question3" name="question3" required>
+        <option value="" disabled {% if not participant.question3 %}selected{% endif %}>Select one</option>
+        {% for opt in ['Technical', 'Career growth', 'Networking'] %}
+          <option value="{{ opt }}" {% if participant.question3 == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="team">Team</label>
+      <select id="team" name="team">
+        <option value="" {% if not participant.team %}selected{% endif %}>No team yet</option>
+        {% for t in teams %}
+          <option value="{{ t }}" {% if participant.team == t %}selected{% endif %}>Team {{ t }}</option>
+        {% endfor %}
+      </select>
+
+      <div class="actions">
+        <a href="{{ url_for('admin') }}" class="cancel-link">Cancel</a>
+        <button type="submit" class="save-btn">Save changes</button>
+      </div>
+    </form>
+
+    <div class="meta">
+      Registered: {{ participant.registered_at.strftime('%d %b %Y, %H:%M') if participant.registered_at else '—' }}<br>
+      Scan code: {{ participant.unique_code }}
+    </div>
+  </div>
+</body>
+</html>

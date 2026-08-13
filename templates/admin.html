@@ -26,6 +26,14 @@
     .yes { color:#16a34a; } .no { color:#dc2626; }
     .empty { text-align:center; padding: 40px; color:#999; }
     .row-actions { display:flex; gap:6px; }
+    .edit-btn { background:#6b7280; color:#fff; border:none; border-radius:6px;
+                padding:6px 12px; font-size:12px; cursor:pointer; text-decoration:none;
+                display:inline-flex; align-items:center; white-space:nowrap; }
+    .edit-btn:hover { background:#4b5563; }
+    .qr-btn { background:#0891b2; color:#fff; border:none; border-radius:6px;
+              padding:6px 12px; font-size:12px; cursor:pointer; text-decoration:none;
+              display:inline-flex; align-items:center; white-space:nowrap; }
+    .qr-btn:hover { background:#0e7490; }
     .resend-btn { background:#2563eb; color:#fff; border:none; border-radius:6px;
                   padding:6px 12px; font-size:12px; cursor:pointer; white-space:nowrap; }
     .resend-btn:hover { background:#1d4ed8; }
@@ -52,7 +60,9 @@
     <div class="links">
       <a href="{{ url_for('dashboard') }}">Live counts</a>
       <a href="{{ url_for('scan_station') }}">Scan station</a>
+      <a href="{{ url_for('admin_export_excel') }}">Export Excel</a>
       <a href="{{ url_for('admin_download_db') }}">Download database</a>
+      <a href="{{ url_for('admin_download_all_qr') }}">Download all QR codes</a>
       <a href="{{ url_for('admin_logout') }}">Log out</a>
     </div>
   </div>
@@ -81,6 +91,7 @@
       <option value="C" {% if team_filter == 'C' %}selected{% endif %}>Team C</option>
       <option value="D" {% if team_filter == 'D' %}selected{% endif %}>Team D</option>
       <option value="UNASSIGNED" {% if team_filter == 'UNASSIGNED' %}selected{% endif %}>Not scanned yet</option>
+      <option value="SCANNED" {% if team_filter == 'SCANNED' %}selected{% endif %}>Scanned / checked in</option>
     </select>
     <button type="submit">Filter</button>
   </form>
@@ -90,6 +101,7 @@
     <thead>
       <tr>
         <th>#</th><th>Emp ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Team</th>
+        <th>Size</th><th>Food</th><th>Interest</th>
         <th>Registered</th><th>Scanned</th><th>Email sent</th><th></th>
       </tr>
     </thead>
@@ -108,10 +120,15 @@
             <span class="team-tag team-none">—</span>
           {% endif %}
         </td>
+        <td>{{ p.question1 or '—' }}</td>
+        <td>{{ p.question2 or '—' }}</td>
+        <td>{{ p.question3 or '—' }}</td>
         <td>{{ p.registered_at.strftime('%d %b %Y, %H:%M') if p.registered_at else '—' }}</td>
         <td>{{ p.scanned_at.strftime('%d %b %Y, %H:%M') if p.scanned_at else '—' }}</td>
         <td class="{{ 'yes' if p.email_sent else 'no' }}">{{ 'Sent' if p.email_sent else 'Failed' }}</td>
         <td class="row-actions">
+          <a href="{{ url_for('admin_edit', participant_id=p.id) }}" class="edit-btn">Edit</a>
+          <a href="{{ url_for('admin_download_qr', participant_id=p.id) }}" class="qr-btn">QR</a>
           {% if p.email %}
           <form method="post" action="{{ url_for('admin_resend', participant_id=p.id) }}">
             <button type="submit" class="resend-btn">Resend QR</button>
@@ -137,6 +154,25 @@
       <input type="text" name="name" placeholder="Full name" required>
       <input type="email" name="email" placeholder="Email" required>
       <input type="tel" name="phone" placeholder="Phone (optional)">
+      <select name="question1" required>
+        <option value="" disabled selected>T-shirt size</option>
+        <option value="S">S</option>
+        <option value="M">M</option>
+        <option value="L">L</option>
+        <option value="XL">XL</option>
+      </select>
+      <select name="question2" required>
+        <option value="" disabled selected>Food preference</option>
+        <option value="Vegetarian">Vegetarian</option>
+        <option value="Non-Vegetarian">Non-Vegetarian</option>
+        <option value="Vegan">Vegan</option>
+      </select>
+      <select name="question3" required>
+        <option value="" disabled selected>Session interest</option>
+        <option value="Technical">Technical</option>
+        <option value="Career growth">Career growth</option>
+        <option value="Networking">Networking</option>
+      </select>
       <select name="team">
         <option value="">No team yet</option>
         <option value="A">Team A</option>

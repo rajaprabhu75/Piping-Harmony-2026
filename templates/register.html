@@ -31,6 +31,12 @@
     .event-box { background:#eef2ff; border-radius:8px; padding:12px 14px; font-size:13px;
                  color:#3730a3; margin-bottom:20px; }
 
+    .chip-group { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .chip { padding:8px 16px; border:2px solid #ddd; border-radius:20px; background:#fff;
+            font-size:13px; cursor:pointer; transition: all 0.15s; color:#333; }
+    .chip:hover { border-color:#93c5fd; }
+    .chip.active { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:bold; }
+
     /* Toast notification for mail sent / failed */
     .toast-wrap {
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
@@ -88,9 +94,54 @@
       <label for="phone">Phone (optional)</label>
       <input type="tel" id="phone" name="phone">
 
+      <!-- Extra questions: each is single-select (only one option can be
+           active at a time), but presented as clickable chips instead of
+           plain radio buttons. Relabel the questions/options below to
+           whatever you actually need to ask. -->
+      <input type="hidden" id="question1" name="question1">
+      <label>T-shirt size</label>
+      <div class="chip-group" data-target="question1">
+        <button type="button" class="chip">S</button>
+        <button type="button" class="chip">M</button>
+        <button type="button" class="chip">L</button>
+        <button type="button" class="chip">XL</button>
+      </div>
+
+      <input type="hidden" id="question2" name="question2">
+      <label>Food preference</label>
+      <div class="chip-group" data-target="question2">
+        <button type="button" class="chip">Vegetarian</button>
+        <button type="button" class="chip">Non-Vegetarian</button>
+        <button type="button" class="chip">Vegan</button>
+      </div>
+
+      <input type="hidden" id="question3" name="question3">
+      <label>Session interest</label>
+      <div class="chip-group" data-target="question3">
+        <button type="button" class="chip">Technical</button>
+        <button type="button" class="chip">Career growth</button>
+        <button type="button" class="chip">Networking</button>
+      </div>
+
       <button type="submit">Register &amp; get my QR code</button>
     </form>
   </div>
+
+  <script>
+    // Chip-style single-select: clicking a chip marks it active, clears
+    // any sibling chip in the same group, and writes the choice into the
+    // paired hidden input that actually gets submitted with the form.
+    document.querySelectorAll('.chip-group').forEach(function (group) {
+      const hiddenInput = document.getElementById(group.dataset.target);
+      group.querySelectorAll('.chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          group.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+          chip.classList.add('active');
+          hiddenInput.value = chip.textContent.trim();
+        });
+      });
+    });
+  </script>
 
   <script>
     // Remove toast elements from the DOM after their fade-out animation
