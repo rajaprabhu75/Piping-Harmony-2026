@@ -52,10 +52,10 @@
       <label for="phone">Phone (optional)</label>
       <input type="tel" id="phone" name="phone" value="{{ participant.phone or '' }}">
 
-      <label for="question1">T-shirt size</label>
+      <label for="question1">Transportation</label>
       <select id="question1" name="question1" required>
         <option value="" disabled {% if not participant.question1 %}selected{% endif %}>Select one</option>
-        {% for opt in ['S', 'M', 'L', 'XL'] %}
+        {% for opt in ['YES', 'NO'] %}
           <option value="{{ opt }}" {% if participant.question1 == opt %}selected{% endif %}>{{ opt }}</option>
         {% endfor %}
       </select>
@@ -63,15 +63,15 @@
       <label for="question2">Food preference</label>
       <select id="question2" name="question2" required>
         <option value="" disabled {% if not participant.question2 %}selected{% endif %}>Select one</option>
-        {% for opt in ['Vegetarian', 'Non-Vegetarian', 'Vegan'] %}
+        {% for opt in ['Vegetarian', 'Non-Vegetarian'] %}
           <option value="{{ opt }}" {% if participant.question2 == opt %}selected{% endif %}>{{ opt }}</option>
         {% endfor %}
       </select>
 
-      <label for="question3">Session interest</label>
+      <label for="question3">BEER</label>
       <select id="question3" name="question3" required>
         <option value="" disabled {% if not participant.question3 %}selected{% endif %}>Select one</option>
-        {% for opt in ['Technical', 'Career growth', 'Networking'] %}
+        {% for opt in ['YES', 'NO'] %}
           <option value="{{ opt }}" {% if participant.question3 == opt %}selected{% endif %}>{{ opt }}</option>
         {% endfor %}
       </select>
