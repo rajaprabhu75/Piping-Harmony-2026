@@ -186,8 +186,7 @@ Date: {EVENT_DATE}
 Venue: {EVENT_VENUE}
 
 Your unique QR code is attached to this email. Please bring it (on your
-phone or printed) on event day. Any organizer, from any of the four teams,
-can scan it and you'll be automatically assigned to a team.
+phone or printed) on event day. Any organizer, can scan it and you'll be automatically assigned to a team.
 
 Your registration code: {participant.id}
 
@@ -592,7 +591,7 @@ def admin_export_excel():
     ws.title = "Participants"
 
     headers = ['#', 'Emp ID', 'Name', 'Email', 'Phone', 'Team',
-               'T-Shirt Size', 'Food Preference', 'Session Interest',
+               'Transportation', 'Food Preference', 'BEER',
                'Registered At', 'Scanned At', 'Email Sent']
     ws.append(headers)
 
