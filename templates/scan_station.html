@@ -1,107 +1,466 @@
 <!doctype html>
 <html lang="en">
 <head>
+
   <meta charset="utf-8">
+
   <title>Scan Station — {{ event_name }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background:#111827; color:#fff; margin:0; padding: 20px; text-align:center; }
-    h1 { font-size: 18px; margin-bottom: 4px; }
-    .sub { color:#9ca3af; font-size: 13px; margin-bottom: 18px; }
-    #reader { max-width: 420px; margin: 0 auto; border-radius: 12px; overflow:hidden; }
-    .result-card { max-width: 420px; margin: 20px auto 0; background:#1f2937; border-radius:12px; padding: 20px; min-height: 90px; }
-    .team-badge { display:inline-block; font-size: 34px; font-weight:bold; color:#fff;
-                  width: 68px; height: 68px; line-height: 68px; border-radius: 50%; margin-bottom: 10px; }
-    .team-A { background:#2563eb; } .team-B { background:#16a34a; }
-    .team-C { background:#d97706; } .team-D { background:#dc2626; }
-    .name { font-size: 18px; font-weight:bold; }
-    .status { font-size: 13px; color:#9ca3af; margin-top: 4px; }
-    .placeholder { color:#6b7280; font-size:14px; padding: 30px 0; }
-    .error-text { color:#f87171; font-size:14px; }
-    .footer-link { display:block; margin-top: 20px; color:#60a5fa; font-size:13px; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background:#111827;
+      color:#fff;
+      margin:0;
+      padding:20px;
+      text-align:center;
+    }
+
+    h1 {
+      font-size:18px;
+      margin-bottom:4px;
+    }
+
+    .sub {
+      color:#9ca3af;
+      font-size:13px;
+      margin-bottom:18px;
+    }
+
+    #reader {
+      max-width:420px;
+      margin:0 auto;
+      border-radius:12px;
+      overflow:hidden;
+    }
+
+    .result-card {
+      max-width:420px;
+      margin:20px auto 0;
+      background:#1f2937;
+      border-radius:12px;
+      padding:20px;
+      min-height:90px;
+      box-sizing:border-box;
+    }
+
+    /*
+      Team badge
+
+      The previous code used:
+          team-${data.team}
+
+      That works for A/B/C/D, but the new team names contain spaces.
+      Therefore we use a generic badge class and determine the
+      background color separately.
+    */
+
+    .team-badge {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      font-size:24px;
+      font-weight:bold;
+      color:#fff;
+
+      width:100%;
+      max-width:320px;
+      min-height:80px;
+
+      padding:12px 18px;
+
+      box-sizing:border-box;
+
+      border-radius:18px;
+
+      margin:0 auto 10px;
+
+      line-height:1.25;
+      text-align:center;
+
+      word-break:normal;
+      overflow-wrap:break-word;
+    }
+
+
+    /*
+      Six team colors
+    */
+
+    .team-bolt-billa {
+      background:#2563eb;
+    }
+
+    .team-elbow-ekambaram {
+      background:#16a34a;
+    }
+
+    .team-jacketed-jackson {
+      background:#d97706;
+    }
+
+    .team-nozzle-nesamani {
+      background:#dc2626;
+    }
+
+    .team-reducer-reeta {
+      background:#7c3aed;
+    }
+
+    .team-valve-vallaiyapathi {
+      background:#0891b2;
+    }
+
+
+    .name {
+      font-size:18px;
+      font-weight:bold;
+    }
+
+    .status {
+      font-size:13px;
+      color:#9ca3af;
+      margin-top:4px;
+    }
+
+    .placeholder {
+      color:#6b7280;
+      font-size:14px;
+      padding:30px 0;
+    }
+
+    .error-text {
+      color:#f87171;
+      font-size:14px;
+    }
+
+    .footer-link {
+      display:block;
+      margin-top:20px;
+      color:#60a5fa;
+      font-size:13px;
+    }
+
+
+    /*
+      Mobile layout
+    */
+
+    @media (max-width:500px) {
+
+      body {
+        padding:15px;
+      }
+
+      h1 {
+        font-size:17px;
+      }
+
+      .sub {
+        line-height:1.4;
+      }
+
+      .team-badge {
+        max-width:100%;
+        min-height:85px;
+        font-size:22px;
+      }
+
+    }
+
   </style>
+
 </head>
+
+
 <body>
-  <h1>{{ event_name }} — Scan Station</h1>
-  <div class="sub">Point a participant's QR code at the camera. Assignment happens automatically.</div>
+
+  <h1>
+    {{ event_name }} — Scan Station
+  </h1>
+
+  <div class="sub">
+    Point a participant's QR code at the camera.
+    Assignment happens automatically.
+  </div>
+
 
   <div id="reader"></div>
 
-  <div class="result-card" id="result">
-    <div class="placeholder">Waiting for a QR code…</div>
+
+  <div
+    class="result-card"
+    id="result"
+  >
+
+    <div class="placeholder">
+      Waiting for a QR code…
+    </div>
+
   </div>
 
-  <a class="footer-link" href="{{ url_for('dashboard') }}">View live team counts →</a>
+
+  <a
+    class="footer-link"
+    href="{{ url_for('dashboard') }}"
+  >
+    View live team counts →
+  </a>
+
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
   <script>
+
     const resultBox = document.getElementById('result');
-    let busy = false; // prevents spamming the API while a request is in flight
+
+    let busy = false;
+    // prevents spamming the API while a request is in flight
+
 
     function extractCode(scannedText) {
-      // The QR encodes a full URL like http://host/scan/<code>. Pull out the
-      // last path segment so this works whether the QR contains a URL or a
-      // bare code.
+
+      /*
+        The QR encodes a full URL like:
+        http://host/scan/<code>
+
+        Pull out the last path segment so this works whether
+        the QR contains a URL or a bare code.
+      */
+
       try {
+
         const url = new URL(scannedText);
-        const parts = url.pathname.split('/').filter(Boolean);
+
+        const parts = url.pathname
+          .split('/')
+          .filter(Boolean);
+
         return parts[parts.length - 1];
+
       } catch (e) {
-        // not a URL — assume the QR just contains the raw code
+
+        /*
+          Not a URL — assume the QR just contains
+          the raw unique code.
+        */
+
         return scannedText.trim();
+
       }
+
     }
 
+
+    /*
+      Convert the actual team name into a safe CSS class.
+
+      Example:
+
+      Bolt Billa
+        -> team-bolt-billa
+
+      Elbow Ekambaram
+        -> team-elbow-ekambaram
+    */
+
+    function getTeamClass(team) {
+
+      const teamClasses = {
+
+        'Bolt Billa':
+          'team-bolt-billa',
+
+        'Elbow Ekambaram':
+          'team-elbow-ekambaram',
+
+        'Jacketed Jackson':
+          'team-jacketed-jackson',
+
+        'Nozzle Nesamani':
+          'team-nozzle-nesamani',
+
+        'Reducer Reeta':
+          'team-reducer-reeta',
+
+        'Valve Vallaiyapathi':
+          'team-valve-vallaiyapathi'
+
+      };
+
+      return teamClasses[team] || '';
+
+    }
+
+
     async function handleScan(decodedText) {
+
       if (busy) return;
+
       busy = true;
+
       const code = extractCode(decodedText);
 
+
       try {
-        const res = await fetch(`/api/scan/${encodeURIComponent(code)}`);
+
+        const res = await fetch(
+          `/api/scan/${encodeURIComponent(code)}`
+        );
+
         const data = await res.json();
 
+
         if (!data.found) {
-          resultBox.innerHTML = `<div class="error-text">❌ QR code not recognized</div>`;
+
+          resultBox.innerHTML = `
+            <div class="error-text">
+              ❌ QR code not recognized
+            </div>
+          `;
+
         } else {
+
           const statusText = data.newly_assigned
             ? `✅ Newly assigned to Team ${data.team}`
             : `Already assigned to Team ${data.team}`;
+
+
+          const teamClass = getTeamClass(
+            data.team
+          );
+
+
           resultBox.innerHTML = `
-            <div class="team-badge team-${data.team}">${data.team}</div>
-            <div class="name">${data.name}</div>
-            <div class="status">${statusText}</div>
+
+            <div class="team-badge ${teamClass}">
+              ${data.team}
+            </div>
+
+            <div class="name">
+              ${data.name}
+            </div>
+
+            <div class="status">
+              ${statusText}
+            </div>
+
           `;
+
         }
+
+
       } catch (e) {
-        resultBox.innerHTML = `<div class="error-text">⚠️ Network error — try again</div>`;
+
+        resultBox.innerHTML = `
+          <div class="error-text">
+            ⚠️ Network error — try again
+          </div>
+        `;
+
       }
 
-      // brief pause so the same code isn't scanned repeatedly in one pass,
-      // then resume listening for the next participant
-      setTimeout(() => { busy = false; }, 2000);
+
+      /*
+        Brief pause so the same code isn't scanned repeatedly
+        in one pass, then resume listening for the next participant.
+      */
+
+      setTimeout(() => {
+
+        busy = false;
+
+      }, 2000);
+
     }
 
-    const qrRegion = document.getElementById('reader');
-    const html5QrCode = new Html5Qrcode('reader');
 
-    Html5Qrcode.getCameras().then(cameras => {
-      if (!cameras || cameras.length === 0) {
-        qrRegion.innerHTML = '<div class="error-text">No camera found on this device.</div>';
-        return;
-      }
-      // Prefer a back/environment-facing camera if available (phones/tablets)
-      const backCam = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[0];
-      html5QrCode.start(
-        backCam.id,
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        handleScan,
-        (errorMessage) => { /* fires continuously while no QR is in frame — ignore */ }
-      );
-    }).catch(err => {
-      qrRegion.innerHTML = '<div class="error-text">Camera access denied or unavailable. ' +
-        'Allow camera permission and reload this page.</div>';
-    });
+    const qrRegion =
+      document.getElementById('reader');
+
+
+    const html5QrCode =
+      new Html5Qrcode('reader');
+
+
+    Html5Qrcode
+      .getCameras()
+      .then(cameras => {
+
+
+        if (!cameras || cameras.length === 0) {
+
+          qrRegion.innerHTML = `
+            <div class="error-text">
+              No camera found on this device.
+            </div>
+          `;
+
+          return;
+
+        }
+
+
+        /*
+          Prefer a back/environment-facing camera
+          if available on phones/tablets.
+        */
+
+        const backCam =
+          cameras.find(
+            c => /back|rear|environment/i.test(c.label)
+          ) || cameras[0];
+
+
+        html5QrCode.start(
+
+          backCam.id,
+
+          {
+            fps:10,
+            qrbox:{
+              width:250,
+              height:250
+            }
+          },
+
+          handleScan,
+
+          (errorMessage) => {
+
+            /*
+              Fires continuously while no QR is in frame.
+              Ignore it.
+            */
+
+          }
+
+        );
+
+      })
+
+
+      .catch(err => {
+
+        qrRegion.innerHTML = `
+          <div class="error-text">
+            ⚠️ Camera access denied or unavailable.
+            Allow camera permission and reload this page.
+          </div>
+        `;
+
+      });
+
+
   </script>
+
 </body>
+
 </html>

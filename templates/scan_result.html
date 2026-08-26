@@ -1,40 +1,213 @@
 <!doctype html>
 <html lang="en">
+
 <head>
+
   <meta charset="utf-8">
+
   <title>Scan Result</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background:#f4f5f7; margin:0; }
-    .card { max-width: 380px; margin: 70px auto; background:#fff; border-radius:10px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 36px; text-align:center; }
-    .team-badge { display:inline-block; font-size: 48px; font-weight:bold; color:#fff;
-                  width: 96px; height: 96px; line-height: 96px; border-radius: 50%; margin-bottom: 18px; }
-    .team-A { background:#2563eb; }
-    .team-B { background:#16a34a; }
-    .team-C { background:#d97706; }
-    .team-D { background:#dc2626; }
-    h2 { margin: 6px 0 4px; }
-    .status { font-size: 14px; color:#666; margin-bottom: 18px; }
-    .not-found { color:#991b1b; font-size: 18px; margin-top: 40px; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background:#f4f5f7;
+      margin:0;
+    }
+
+    .card {
+      max-width: 420px;
+      margin: 70px auto;
+      background:#fff;
+      border-radius:10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      padding: 36px;
+      text-align:center;
+    }
+
+    .team-badge {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:25px;
+      font-weight:bold;
+      color:#fff;
+      width:260px;
+      min-height:100px;
+      padding:15px 20px;
+      box-sizing:border-box;
+      border-radius:20px;
+      margin:0 auto 18px;
+      line-height:1.25;
+      text-align:center;
+      word-break:normal;
+      overflow-wrap:break-word;
+    }
+
+    .team-bolt-billa {
+      background:#2563eb;
+    }
+
+    .team-elbow-ekambaram {
+      background:#16a34a;
+    }
+
+    .team-jacketed-jackson {
+      background:#d97706;
+    }
+
+    .team-nozzle-nesamani {
+      background:#dc2626;
+    }
+
+    .team-reducer-reeta {
+      background:#7c3aed;
+    }
+
+    .team-valve-vallaiyapathi {
+      background:#0891b2;
+    }
+
+    h2 {
+      margin:6px 0 4px;
+    }
+
+    .status {
+      font-size:14px;
+      color:#666;
+      margin-bottom:18px;
+    }
+
+    .not-found {
+      color:#991b1b;
+      font-size:18px;
+      margin-top:40px;
+    }
+
+    .participant-email {
+      font-size:12px;
+      color:#999;
+      word-break:break-word;
+    }
+
+    @media (max-width:500px) {
+
+      .card {
+        max-width:none;
+        margin:30px 15px;
+        padding:30px 20px;
+      }
+
+      .team-badge {
+        width:100%;
+        max-width:320px;
+        min-height:100px;
+        font-size:24px;
+      }
+
+    }
+
   </style>
+
 </head>
+
 <body>
+
   <div class="card">
+
     {% if not found %}
-      <div class="not-found">❌ QR code not recognized.<br>Please check with the registration desk.</div>
-    {% else %}
-      <div class="team-badge team-{{ participant.team }}">{{ participant.team }}</div>
-      <h2>{{ participant.name }}</h2>
-      <div class="status">
-        {% if newly_assigned %}
-          ✅ Newly assigned to <strong>Team {{ participant.team }}</strong>
-        {% else %}
-          Already assigned to <strong>Team {{ participant.team }}</strong>
-        {% endif %}
+
+      <div class="not-found">
+        ❌ QR code not recognized.<br>
+        Please check with the registration desk.
       </div>
-      <div style="font-size:12px;color:#999;">{{ participant.email }}</div>
+
+    {% else %}
+
+      {% if participant.team == 'Bolt Billa' %}
+
+        <div class="team-badge team-bolt-billa">
+          {{ participant.team }}
+        </div>
+
+      {% elif participant.team == 'Elbow Ekambaram' %}
+
+        <div class="team-badge team-elbow-ekambaram">
+          {{ participant.team }}
+        </div>
+
+      {% elif participant.team == 'Jacketed Jackson' %}
+
+        <div class="team-badge team-jacketed-jackson">
+          {{ participant.team }}
+        </div>
+
+      {% elif participant.team == 'Nozzle Nesamani' %}
+
+        <div class="team-badge team-nozzle-nesamani">
+          {{ participant.team }}
+        </div>
+
+      {% elif participant.team == 'Reducer Reeta' %}
+
+        <div class="team-badge team-reducer-reeta">
+          {{ participant.team }}
+        </div>
+
+      {% elif participant.team == 'Valve Vallaiyapathi' %}
+
+        <div class="team-badge team-valve-vallaiyapathi">
+          {{ participant.team }}
+        </div>
+
+      {% else %}
+
+        <div
+          class="team-badge"
+          style="background:#6b7280;"
+        >
+          {{ participant.team or 'No Team Assigned' }}
+        </div>
+
+      {% endif %}
+
+      <h2>
+        {{ participant.name }}
+      </h2>
+
+      <div class="status">
+
+        {% if newly_assigned %}
+
+          ✅ Newly assigned to
+          <strong>
+            Team {{ participant.team }}
+          </strong>
+
+        {% else %}
+
+          Already assigned to
+          <strong>
+            Team {{ participant.team }}
+          </strong>
+
+        {% endif %}
+
+      </div>
+
+      <div class="participant-email">
+        {{ participant.email }}
+      </div>
+
     {% endif %}
+
   </div>
+
 </body>
+
 </html>

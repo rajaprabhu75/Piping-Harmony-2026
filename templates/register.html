@@ -1,154 +1,618 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <title>Register — {{ event_name }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+
+    /* =========================
+       PAGE BACKGROUND
+       ========================= */
+
     body {
       font-family: Arial, Helvetica, sans-serif;
-      margin:0; padding:0;
+
       min-height: 100vh;
-      background: linear-gradient(-45deg, #2563eb, #7c3aed, #0891b2, #16a34a);
-      background-size: 400% 400%;
-      animation: gradientShift 16s ease infinite;
-    }
-    @keyframes gradientShift {
-      0%   { background-position: 0% 50%; }
-      50%  { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    .card { max-width: 440px; margin: 60px auto; background:#fff; border-radius:14px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.18); padding: 32px; }
-    h1 { font-size: 22px; margin-bottom: 4px; }
-    .sub { color:#666; font-size: 14px; margin-bottom: 24px; }
-    label { display:block; margin-top: 14px; font-size: 13px; font-weight:bold; color:#333; }
-    input { width:100%; padding:10px; margin-top:6px; border:1px solid #ccc; border-radius:6px;
-            box-sizing:border-box; font-size:14px; }
-    button { margin-top: 22px; width:100%; padding:12px; background:#2563eb; color:#fff;
-             border:none; border-radius:6px; font-size:15px; cursor:pointer; transition: background 0.15s; }
-    button:hover { background:#1d4ed8; }
-    .event-box { background:#eef2ff; border-radius:8px; padding:12px 14px; font-size:13px;
-                 color:#3730a3; margin-bottom:20px; }
 
-    .chip-group { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
-    .chip { padding:8px 16px; border:2px solid #ddd; border-radius:20px; background:#fff;
-            font-size:13px; cursor:pointer; transition: all 0.15s; color:#333; }
-    .chip:hover { border-color:#93c5fd; }
-    .chip.active { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:bold; }
+      display: flex;
+      justify-content: center;
+      align-items: center;
 
-    /* Toast notification for mail sent / failed */
+      padding: 30px 15px;
+
+      /*
+        Piping Harmony background image.
+        Put the image here:
+
+        static/images/piping-harmony-bg.jpg
+      */
+
+      background-image:
+        linear-gradient(
+          rgba(0, 0, 0, 0.30),
+          rgba(0, 0, 0, 0.30)
+        ),
+        url("{{ url_for('static', filename='images/piping-harmony-bg.jpg') }}");
+
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+
+
+    /* =========================
+       TRANSPARENT CENTER FORM
+       ========================= */
+
+    .card {
+
+      width: 100%;
+      max-width: 440px;
+
+      /*
+        Transparent glass effect
+      */
+
+      background: rgba(255, 255, 255, 0.15);
+
+      /*
+        Glass border
+      */
+
+      border: 1px solid rgba(255, 255, 255, 0.40);
+
+      border-radius: 16px;
+
+      /*
+        Shadow
+      */
+
+      box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.30);
+
+      /*
+        Blur background behind form
+      */
+
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+
+      padding: 32px;
+    }
+
+
+    /* =========================
+       HEADING
+       ========================= */
+
+    h1 {
+
+      font-size: 24px;
+
+      margin: 0 0 6px;
+
+      color: #ffffff;
+
+      text-align: center;
+
+      text-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.35);
+    }
+
+
+    /* =========================
+       SUBTITLE
+       ========================= */
+
+    .sub {
+
+      color: #ffffff;
+
+      font-size: 14px;
+
+      margin-bottom: 24px;
+
+      line-height: 1.5;
+
+      text-align: center;
+
+      text-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+
+    /* =========================
+       EVENT DETAILS
+       ========================= */
+
+    .event-box {
+
+      background: rgba(255, 255, 255, 0.18);
+
+      border: 1px solid rgba(255, 255, 255, 0.25);
+
+      border-radius: 10px;
+
+      padding: 12px 14px;
+
+      font-size: 13px;
+
+      color: #ffffff;
+
+      margin-bottom: 20px;
+
+      line-height: 1.6;
+
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+
+      text-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+
+    /* =========================
+       LABELS
+       ========================= */
+
+    label {
+
+      display: block;
+
+      margin-top: 14px;
+
+      font-size: 13px;
+
+      font-weight: bold;
+
+      color: #ffffff;
+
+      text-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+
+    /* =========================
+       INPUT FIELDS
+       ========================= */
+
+    input {
+
+      width: 100%;
+
+      padding: 11px;
+
+      margin-top: 6px;
+
+      /*
+        Semi-transparent input
+      */
+
+      background: rgba(255, 255, 255, 0.82);
+
+      border: 1px solid rgba(255, 255, 255, 0.65);
+
+      border-radius: 7px;
+
+      font-size: 14px;
+
+      color: #111827;
+
+      outline: none;
+
+      transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        background 0.15s;
+    }
+
+
+    input::placeholder {
+      color: #6b7280;
+    }
+
+
+    input:focus {
+
+      background: rgba(255, 255, 255, 0.95);
+
+      border-color: #ffffff;
+
+      box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.25);
+    }
+
+
+    /* =========================
+       REGISTER BUTTON
+       ========================= */
+
+    button {
+
+      margin-top: 22px;
+
+      width: 100%;
+
+      padding: 13px;
+
+      background: rgba(37, 99, 235, 0.95);
+
+      color: #ffffff;
+
+      border: 1px solid rgba(255, 255, 255, 0.35);
+
+      border-radius: 7px;
+
+      font-size: 15px;
+
+      font-weight: 600;
+
+      cursor: pointer;
+
+      transition:
+        background 0.15s,
+        transform 0.1s,
+        box-shadow 0.15s;
+    }
+
+
+    button:hover {
+
+      background: rgba(29, 78, 216, 1);
+
+      box-shadow:
+        0 5px 15px rgba(0, 0, 0, 0.25);
+    }
+
+
+    button:active {
+
+      transform: scale(0.99);
+    }
+
+
+    /* =========================
+       TOAST NOTIFICATION
+       ========================= */
+
     .toast-wrap {
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      z-index: 999; width: calc(100% - 32px); max-width: 420px;
+
+      position: fixed;
+
+      top: 20px;
+
+      left: 50%;
+
+      transform: translateX(-50%);
+
+      z-index: 999;
+
+      width: calc(100% - 32px);
+
+      max-width: 420px;
     }
+
+
     .toast {
-      padding: 14px 18px; border-radius: 10px; font-size: 14px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      display:flex; align-items:center; gap:10px;
-      animation: toastIn 0.35s ease, toastOut 0.35s ease 4.2s forwards;
+
+      padding: 14px 18px;
+
+      border-radius: 10px;
+
+      font-size: 14px;
+
+      box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.20);
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 10px;
+
+      animation:
+        toastIn 0.35s ease,
+        toastOut 0.35s ease 4.2s forwards;
     }
-    .toast.success { background:#16a34a; color:#fff; }
-    .toast.error { background:#dc2626; color:#fff; }
+
+
+    .toast.success {
+
+      background: #16a34a;
+
+      color: #ffffff;
+    }
+
+
+    .toast.error {
+
+      background: #dc2626;
+
+      color: #ffffff;
+    }
+
+
     @keyframes toastIn {
-      from { opacity:0; transform: translateY(-16px); }
-      to   { opacity:1; transform: translateY(0); }
+
+      from {
+
+        opacity: 0;
+
+        transform: translateY(-16px);
+      }
+
+      to {
+
+        opacity: 1;
+
+        transform: translateY(0);
+      }
     }
+
+
     @keyframes toastOut {
-      to { opacity:0; transform: translateY(-16px); }
+
+      to {
+
+        opacity: 0;
+
+        transform: translateY(-16px);
+      }
     }
+
+
+    /* =========================
+       MOBILE
+       ========================= */
+
+    @media (max-width: 600px) {
+
+      body {
+
+        padding: 20px 12px;
+
+        background-position: center center;
+
+        background-attachment: scroll;
+      }
+
+
+      .card {
+
+        max-width: 100%;
+
+        padding: 24px 20px;
+
+        border-radius: 14px;
+
+        /*
+          Slightly more transparent on mobile
+        */
+
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+
+      h1 {
+
+        font-size: 21px;
+      }
+
+
+      .sub {
+
+        font-size: 13px;
+      }
+
+
+      .event-box {
+
+        font-size: 12px;
+      }
+
+    }
+
   </style>
 </head>
+
+
 <body>
+
+
+  <!-- =========================
+       FLASH / TOAST MESSAGES
+       ========================= -->
+
   {% with messages = get_flashed_messages(with_categories=true) %}
+
     {% if messages %}
-    <div class="toast-wrap">
-      {% for category, message in messages %}
-        <div class="toast {{ category }}">
-          <span>{{ '✅' if category == 'success' else '⚠️' }}</span>
-          <span>{{ message }}</span>
-        </div>
-      {% endfor %}
-    </div>
+
+      <div class="toast-wrap">
+
+        {% for category, message in messages %}
+
+          <div class="toast {{ category }}">
+
+            <span>
+              {{ '✅' if category == 'success' else '⚠️' }}
+            </span>
+
+            <span>
+              {{ message }}
+            </span>
+
+          </div>
+
+        {% endfor %}
+
+      </div>
+
     {% endif %}
+
   {% endwith %}
 
-  <div class="card">
-    <h1>{{ event_name }}</h1>
-    <div class="sub">Register below — your QR code will be emailed to you.</div>
 
-    <div class="event-box">
-      📅 {{ event_date }} &nbsp;|&nbsp; 📍 {{ event_venue }}
+
+  <!-- =========================
+       REGISTRATION CARD
+       ========================= -->
+
+  <div class="card">
+
+
+    <!-- Event name -->
+
+    <h1>
+      {{ event_name }}
+    </h1>
+
+
+    <!-- Description -->
+
+    <div class="sub">
+      Register below — your QR code will be emailed to you.
     </div>
 
-    <form action="{{ url_for('register') }}" method="post">
-      <label for="emp_id">Employee ID</label>
-      <input type="text" id="emp_id" name="emp_id" required>
 
-      <label for="name">Full name</label>
-      <input type="text" id="name" name="name" required>
 
-      <label for="email">Email address</label>
-      <input type="email" id="email" name="email" required>
+    <!-- =========================
+         EVENT INFORMATION
+         ========================= -->
 
-      <label for="phone">Phone (optional)</label>
-      <input type="tel" id="phone" name="phone">
+    <div class="event-box">
 
-      <!-- Extra questions: each is single-select (only one option can be
-           active at a time), but presented as clickable chips instead of
-           plain radio buttons. Relabel the questions/options below to
-           whatever you actually need to ask. -->
-      <input type="hidden" id="question1" name="question1">
-      <label>T-shirt size</label>
-      <div class="chip-group" data-target="question1">
-        <button type="button" class="chip">S</button>
-        <button type="button" class="chip">M</button>
-        <button type="button" class="chip">L</button>
-        <button type="button" class="chip">XL</button>
-      </div>
+      📅 {{ event_date }}
 
-      <input type="hidden" id="question2" name="question2">
-      <label>Food preference</label>
-      <div class="chip-group" data-target="question2">
-        <button type="button" class="chip">Vegetarian</button>
-        <button type="button" class="chip">Non-Vegetarian</button>
-        <button type="button" class="chip">Vegan</button>
-      </div>
+      &nbsp; | &nbsp;
 
-      <input type="hidden" id="question3" name="question3">
-      <label>Session interest</label>
-      <div class="chip-group" data-target="question3">
-        <button type="button" class="chip">Technical</button>
-        <button type="button" class="chip">Career growth</button>
-        <button type="button" class="chip">Networking</button>
-      </div>
+      📍 {{ event_venue }}
 
-      <button type="submit">Register &amp; get my QR code</button>
+    </div>
+
+
+
+    <!-- =========================
+         REGISTRATION FORM
+         ========================= -->
+
+    <form
+      action="{{ url_for('register') }}"
+      method="post"
+    >
+
+
+      <!-- Employee ID -->
+
+      <label for="emp_id">
+        Employee ID
+      </label>
+
+      <input
+        type="text"
+        id="emp_id"
+        name="emp_id"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        title="Numbers only"
+        required
+      >
+
+
+
+      <!-- Full Name -->
+
+      <label for="name">
+        Full name
+      </label>
+
+      <input
+        type="text"
+        id="name"
+        name="name"
+        required
+      >
+
+
+
+      <!-- Email -->
+
+      <label for="email">
+        Email address
+      </label>
+
+      <input
+        type="email"
+        id="email"
+        name="email"
+        required
+      >
+
+
+
+      <!-- Phone -->
+
+      <label for="phone">
+        Phone (optional)
+      </label>
+
+      <input
+        type="tel"
+        id="phone"
+        name="phone"
+      >
+
+
+
+      <!-- Submit button -->
+
+      <button type="submit">
+        Register &amp; get my QR code
+      </button>
+
+
     </form>
+
+
   </div>
 
-  <script>
-    // Chip-style single-select: clicking a chip marks it active, clears
-    // any sibling chip in the same group, and writes the choice into the
-    // paired hidden input that actually gets submitted with the form.
-    document.querySelectorAll('.chip-group').forEach(function (group) {
-      const hiddenInput = document.getElementById(group.dataset.target);
-      group.querySelectorAll('.chip').forEach(function (chip) {
-        chip.addEventListener('click', function () {
-          group.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
-          chip.classList.add('active');
-          hiddenInput.value = chip.textContent.trim();
-        });
-      });
-    });
-  </script>
+
+
+  <!-- =========================
+       TOAST CLEANUP
+       ========================= -->
 
   <script>
-    // Remove toast elements from the DOM after their fade-out animation
-    // finishes, so they don't linger invisibly or block clicks.
-    document.querySelectorAll('.toast').forEach(function (el) {
-      setTimeout(function () { el.remove(); }, 4600);
-    });
+
+    document
+      .querySelectorAll('.toast')
+      .forEach(function (el) {
+
+        setTimeout(function () {
+
+          el.remove();
+
+        }, 4600);
+
+      });
+
   </script>
+
+
 </body>
+
 </html>
