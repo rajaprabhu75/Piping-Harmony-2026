@@ -332,6 +332,25 @@ See you there!
         return False
 
 
+def send_qr_email_async(participant_id: int) -> None:
+    """Runs send_qr_email() in a background thread so the /register request
+    doesn't have to wait for the Gmail SMTP round-trip (usually 1-3s, but can
+    spike much higher). Needs its own app context + DB session since it's
+    running outside the original request."""
+
+    with app.app_context():
+
+        participant = Participant.query.get(participant_id)
+
+        if participant is None:
+            return
+
+        sent = send_qr_email(participant)
+
+        participant.email_sent = sent
+        db.session.commit()
+
+
 def pick_smallest_team() -> str:
     """
     Team with the fewest members.
@@ -488,26 +507,21 @@ def register():
     db.session.add(participant)
     db.session.commit()
 
-    sent = send_qr_email(participant)
+    # Send the QR email in the background so this request doesn't block on
+    # the Gmail SMTP round-trip (image generation + SMTP auth + send can
+    # take several seconds, longer under load). email_sent starts False and
+    # is flipped to True/False for real once send_qr_email_async finishes.
+    threading.Thread(
+        target=send_qr_email_async,
+        args=(participant.id,),
+        daemon=True
+    ).start()
 
-    participant.email_sent = sent
-
-    db.session.commit()
-
-    if sent:
-
-        flash(
-            f'QR code sent to {email}. Check your inbox!',
-            'success'
-        )
-
-    else:
-
-        flash(
-            'Registered, but the confirmation email could not be sent. '
-            'Please contact the organizers.',
-            'error'
-        )
+    flash(
+        f'Registered! Your QR code is on its way to {email} — '
+        'it may take a minute to arrive.',
+        'success'
+    )
 
     return redirect(url_for('index'))
 
@@ -1395,27 +1409,16 @@ def admin_add():
     db.session.add(participant)
     db.session.commit()
 
-    sent = send_qr_email(
-        participant
+    threading.Thread(
+        target=send_qr_email_async,
+        args=(participant.id,),
+        daemon=True
+    ).start()
+
+    flash(
+        f'Participant added. QR code is being sent to {email}.',
+        'success'
     )
-
-    participant.email_sent = sent
-
-    db.session.commit()
-
-    if sent:
-
-        flash(
-            f'Participant added and QR code sent to {email}.',
-            'success'
-        )
-
-    else:
-
-        flash(
-            'Participant added, but the confirmation email could not be sent.',
-            'error'
-        )
 
     return redirect(
         url_for('admin')
@@ -1449,13 +1452,16 @@ def admin_resend(participant_id):
             url_for('admin')
         )
 
-    sent = send_qr_email(
-        participant
+    threading.Thread(
+        target=send_qr_email_async,
+        args=(participant.id,),
+        daemon=True
+    ).start()
+
+    flash(
+        f'Resending QR code to {participant.email}.',
+        'success'
     )
-
-    participant.email_sent = sent
-
-    db.session.commit()
 
     return redirect(
         url_for('admin')
