@@ -475,6 +475,15 @@ def register():
 
         return redirect(url_for('index'))
 
+    if not email.endswith('@ten.com'):
+
+        flash(
+            'Please register with your @ten.com email address.',
+            'error'
+        )
+
+        return redirect(url_for('index'))
+
     if not emp_id.isdigit():
 
         flash(
