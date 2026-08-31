@@ -1,6 +1,8 @@
 import os
 import io
 import uuid
+import time
+import random
 import threading
 from datetime import datetime
 
@@ -114,6 +116,21 @@ class Participant(db.Model):
     scanned_at = db.Column(db.DateTime, nullable=True)
     email_sent = db.Column(db.Boolean, default=False)
 
+    # Event-day logistics questions asked at registration.
+    needs_bus = db.Column(db.Boolean, default=False)
+    needs_breakfast = db.Column(db.Boolean, default=False)
+    needs_beer = db.Column(db.Boolean, default=False)
+    needs_food = db.Column(db.Boolean, default=False)
+
+    # Only meaningful when needs_food is True. Values: 'veg' / 'nonveg'.
+    food_preference = db.Column(db.String(10), nullable=True)
+
+    # The same QR code is used at two separate scan stations: the team-entry
+    # station (team / scanned_at above) and the beer counter (below). The two
+    # are tracked independently so scanning at one has no effect on the other.
+    beer_received = db.Column(db.Boolean, default=False)
+    beer_scanned_at = db.Column(db.DateTime, nullable=True)
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -126,6 +143,14 @@ class Participant(db.Model):
                 if self.registered_at else None,
             'scanned_at': self.scanned_at.isoformat()
                 if self.scanned_at else None,
+            'needs_bus': self.needs_bus,
+            'needs_breakfast': self.needs_breakfast,
+            'needs_beer': self.needs_beer,
+            'needs_food': self.needs_food,
+            'food_preference': self.food_preference,
+            'beer_received': self.beer_received,
+            'beer_scanned_at': self.beer_scanned_at.isoformat()
+                if self.beer_scanned_at else None,
         }
 
 
@@ -145,6 +170,45 @@ with app.app_context():
         if 'emp_id' not in existing_cols:
             conn.exec_driver_sql(
                 "ALTER TABLE participant ADD COLUMN emp_id VARCHAR(30)"
+            )
+
+        # New columns for the bus / beer questions and the separate
+        # beer-counter scan. Existing rows default to "no" / "not received".
+        if 'needs_bus' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN needs_bus BOOLEAN DEFAULT 0"
+            )
+
+        if 'needs_breakfast' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN needs_breakfast BOOLEAN DEFAULT 0"
+            )
+
+        if 'needs_beer' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN needs_beer BOOLEAN DEFAULT 0"
+            )
+
+        if 'beer_received' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN beer_received BOOLEAN DEFAULT 0"
+            )
+
+        if 'beer_scanned_at' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN beer_scanned_at DATETIME"
+            )
+
+        # New columns for the food question and veg/non-veg preference.
+        # Existing rows default to "no food" / no preference set.
+        if 'needs_food' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN needs_food BOOLEAN DEFAULT 0"
+            )
+
+        if 'food_preference' not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE participant ADD COLUMN food_preference VARCHAR(10)"
             )
 
 
@@ -410,6 +474,80 @@ def process_scan(code: str):
     return participant, newly_assigned
 
 
+def process_beer_scan(code: str):
+
+    """Marks a participant's beer as collected. This is a completely
+    separate flag from team-entry scanning (process_scan above) — the same
+    physical QR code is scanned at both stations, but scanning it at the
+    beer counter never touches team assignment, and vice versa.
+
+    If the participant said "No" to beer at registration, this is a HARD
+    BLOCK: beer_received is never set to True, no matter how many times
+    their code is scanned here.
+
+    Returns (participant_or_None, newly_marked: bool, requested_beer: bool).
+    requested_beer tells the beer-station screen whether this person is
+    even eligible, so it can show "Not registered for beer" instead of
+    marking anything."""
+
+    participant = Participant.query.filter_by(
+        unique_code=code
+    ).first()
+
+    if not participant:
+        return None, False, False
+
+    if not participant.needs_beer:
+        # Said "No" at registration — never mark beer as given.
+        return participant, False, False
+
+    newly_marked = False
+
+    with assign_lock:
+
+        db.session.refresh(participant)
+
+        if not participant.beer_received:
+
+            participant.beer_received = True
+            participant.beer_scanned_at = datetime.utcnow()
+
+            newly_marked = True
+
+            db.session.commit()
+
+    return participant, newly_marked, True
+
+
+def bulk_send_worker(participant_ids):
+
+    """Sends the QR email to a list of participants one at a time, in a
+    single background thread, with a short pause between sends. This backs
+    the admin "Send QR to all pending" button.
+
+    Deliberately sequential (not one thread per participant) — Gmail SMTP
+    will throttle or start failing sends if hit with a big burst all at
+    once, which is exactly the risk with 500 registrants. Pacing them out
+    keeps the whole batch reliable even if it takes a few minutes longer."""
+
+    with app.app_context():
+
+        for participant_id in participant_ids:
+
+            participant = Participant.query.get(participant_id)
+
+            if participant is None:
+                continue
+
+            sent = send_qr_email(participant)
+
+            participant.email_sent = sent
+            db.session.commit()
+
+            # Gentle pacing to stay well under Gmail's sending rate limits.
+            time.sleep(1.5)
+
+
 def admin_required(view_func):
 
     @wraps(view_func)
@@ -466,10 +604,53 @@ def register():
         ''
     ).strip()
 
+    needs_bus_raw = request.form.get(
+        'needs_bus',
+        ''
+    ).strip().lower()
+
+    needs_breakfast_raw = request.form.get(
+        'needs_breakfast',
+        ''
+    ).strip().lower()
+
+    needs_beer_raw = request.form.get(
+        'needs_beer',
+        ''
+    ).strip().lower()
+
+    food_preference_raw = request.form.get(
+        'food_preference',
+        ''
+    ).strip().lower()
+
     if not emp_id or not name or not email:
 
         flash(
             'Employee ID, name, and email are all required.',
+            'error'
+        )
+
+        return redirect(url_for('index'))
+
+    if (
+        needs_bus_raw not in ('yes', 'no')
+        or needs_breakfast_raw not in ('yes', 'no')
+        or needs_beer_raw not in ('yes', 'no')
+    ):
+
+        flash(
+            'Please answer the bus, breakfast, and beer questions.',
+            'error'
+        )
+
+        return redirect(url_for('index'))
+
+    # Every participant now gets a meal, so veg/non-veg is always required.
+    if food_preference_raw not in ('veg', 'nonveg'):
+
+        flash(
+            'Please let us know if you prefer veg or non-veg.',
             'error'
         )
 
@@ -511,6 +692,11 @@ def register():
         email=email,
         phone=phone,
         unique_code=str(uuid.uuid4()),
+        needs_bus=(needs_bus_raw == 'yes'),
+        needs_breakfast=(needs_breakfast_raw == 'yes'),
+        needs_beer=(needs_beer_raw == 'yes'),
+        needs_food=True,
+        food_preference=food_preference_raw,
     )
 
     db.session.add(participant)
@@ -593,6 +779,43 @@ def scan_station():
         'scan_station.html',
         event_name=EVENT_NAME,
         teams=TEAMS
+    )
+
+
+@app.route('/api/beer-scan/<code>')
+def api_beer_scan(code):
+
+    """JSON endpoint for the beer counter's webcam scan station
+    (/beer-station). Scans the SAME physical QR code as team entry, but
+    marks a completely separate beer_received flag instead of touching
+    team assignment."""
+
+    participant, newly_marked, requested_beer = process_beer_scan(code)
+
+    if not participant:
+        return jsonify({
+            'found': False
+        }), 404
+
+    return jsonify({
+        'found': True,
+        'name': participant.name,
+        'team': participant.team,
+        'newly_marked': newly_marked,
+        'requested_beer': requested_beer,
+    })
+
+
+@app.route('/beer-station')
+def beer_station():
+
+    """Webcam-driven scan station for the beer counter — a separate desk
+    from team-entry scanning. Point the same QR code at this page's camera
+    to mark that participant's beer as collected."""
+
+    return render_template(
+        'beer_station.html',
+        event_name=EVENT_NAME
     )
 
 
@@ -938,6 +1161,21 @@ def admin_edit(participant_id):
 
         team = team if team in TEAMS else None
 
+        needs_bus = request.form.get('needs_bus', 'no').strip().lower() == 'yes'
+        needs_breakfast = request.form.get('needs_breakfast', 'no').strip().lower() == 'yes'
+        needs_beer = request.form.get('needs_beer', 'no').strip().lower() == 'yes'
+        beer_received = request.form.get('beer_received', 'no').strip().lower() == 'yes'
+
+        food_preference = request.form.get(
+            'food_preference', ''
+        ).strip().lower()
+
+        food_preference = (
+            food_preference
+            if food_preference in ('veg', 'nonveg')
+            else None
+        )
+
         if not emp_id or not name or not email:
 
             flash(
@@ -992,6 +1230,11 @@ def admin_edit(participant_id):
         participant.email = email
         participant.phone = phone
         participant.team = team
+        participant.needs_bus = needs_bus
+        participant.needs_breakfast = needs_breakfast
+        participant.needs_beer = needs_beer
+        participant.needs_food = True
+        participant.food_preference = food_preference
 
         # Keep scanned_at consistent with whether a team is actually set —
         # so the "Scanned / checked in" filter stays accurate after a
@@ -1004,6 +1247,19 @@ def admin_edit(participant_id):
         elif not team:
 
             participant.scanned_at = None
+
+        # Same idea for the beer flag: keep beer_scanned_at consistent with
+        # whichever way the admin flips beer_received by hand.
+
+        if beer_received and not participant.beer_received:
+
+            participant.beer_scanned_at = datetime.utcnow()
+
+        elif not beer_received:
+
+            participant.beer_scanned_at = None
+
+        participant.beer_received = beer_received
 
         db.session.commit()
 
@@ -1177,7 +1433,12 @@ def admin_export_excel():
         'Team',
         'Registered At',
         'Scanned At',
-        'Email Sent'
+        'Email Sent',
+        'Needs Bus',
+        'Needs Breakfast',
+        'Needs Beer',
+        'Beer Given',
+        'Diet'
     ]
 
     ws.append(headers)
@@ -1235,6 +1496,15 @@ def admin_export_excel():
                 '%d %b %Y, %H:%M'
             ) if p.scanned_at else '',
             'Sent' if p.email_sent else 'Not sent',
+            'Yes' if p.needs_bus else 'No',
+            'Yes' if p.needs_breakfast else 'No',
+            'Yes' if p.needs_beer else 'No',
+            'Yes' if p.beer_received else 'No',
+            (
+                'Veg' if p.food_preference == 'veg'
+                else 'Non-Veg' if p.food_preference == 'nonveg'
+                else 'N/A'
+            ),
         ])
 
     # Increased Team column width because team names are longer.
@@ -1248,7 +1518,12 @@ def admin_export_excel():
         24,
         20,
         20,
-        12
+        12,
+        10,
+        10,
+        10,
+        12,
+        10
     ]
 
     for i, w in enumerate(
@@ -1368,6 +1643,27 @@ def admin_add():
 
     team = team if team in TEAMS else None
 
+    # Optional for a manually-added walk-in — default to "No" if left blank.
+    needs_bus = request.form.get('needs_bus', 'no').strip().lower() == 'yes'
+    needs_breakfast = request.form.get('needs_breakfast', 'no').strip().lower() == 'yes'
+    needs_beer = request.form.get('needs_beer', 'no').strip().lower() == 'yes'
+
+    # Every participant gets a meal now, so this is always required.
+    food_preference = request.form.get(
+        'food_preference', ''
+    ).strip().lower()
+
+    if food_preference not in ('veg', 'nonveg'):
+
+        flash(
+            'Please choose Veg or Non-Veg for the participant.',
+            'error'
+        )
+
+        return redirect(
+            url_for('admin')
+        )
+
     if not emp_id or not name or not email:
 
         flash(
@@ -1413,6 +1709,11 @@ def admin_add():
         scanned_at=datetime.utcnow()
         if team
         else None,
+        needs_bus=needs_bus,
+        needs_breakfast=needs_breakfast,
+        needs_beer=needs_beer,
+        needs_food=True,
+        food_preference=food_preference,
     )
 
     db.session.add(participant)
@@ -1475,6 +1776,91 @@ def admin_resend(participant_id):
     return redirect(
         url_for('admin')
     )
+
+
+@app.route('/admin/bulk-send', methods=['POST'])
+@admin_required
+def admin_bulk_send():
+
+    """Sends the QR code email to every participant who doesn't have one
+    yet (email_sent is False), all in one go. Runs in a single background
+    thread that paces the sends out (see bulk_send_worker), so this request
+    returns immediately instead of the admin's browser sitting there while
+    hundreds of emails go out one by one."""
+
+    participants = Participant.query.filter(
+        Participant.email_sent.is_(False)
+    ).filter(
+        ~Participant.email.endswith('@placeholder.local')
+    ).all()
+
+    participant_ids = [p.id for p in participants]
+
+    if not participant_ids:
+
+        flash(
+            'Everyone with an email address already has their QR code.',
+            'success'
+        )
+
+        return redirect(url_for('admin'))
+
+    threading.Thread(
+        target=bulk_send_worker,
+        args=(participant_ids,),
+        daemon=True
+    ).start()
+
+    flash(
+        f'Sending QR codes to {len(participant_ids)} participant(s) in the '
+        'background — refresh this page in a few minutes to see progress.',
+        'success'
+    )
+
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/random-split', methods=['POST'])
+@admin_required
+def admin_random_split():
+
+    """Randomly assigns a team to every registered participant who doesn't
+    already have one — an alternative to waiting for each person to have
+    their QR scanned at the door. Ties are broken by shuffling the whole
+    list first, then handing out teams round-robin, so the split stays as
+    even as possible."""
+
+    unassigned = Participant.query.filter(
+        Participant.team.is_(None)
+    ).all()
+
+    if not unassigned:
+
+        flash(
+            'Everyone already has a team assigned.',
+            'error'
+        )
+
+        return redirect(url_for('admin'))
+
+    random.shuffle(unassigned)
+
+    now = datetime.utcnow()
+
+    for i, participant in enumerate(unassigned):
+
+        participant.team = TEAMS[i % len(TEAMS)]
+        participant.scanned_at = now
+
+    db.session.commit()
+
+    flash(
+        f'Randomly split {len(unassigned)} participant(s) across '
+        f'{len(TEAMS)} teams.',
+        'success'
+    )
+
+    return redirect(url_for('admin'))
 
 
 @app.route(
