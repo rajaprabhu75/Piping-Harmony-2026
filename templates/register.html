@@ -377,6 +377,140 @@
 
 
     /* =========================
+       AVAILABILITY GATE
+       ========================= */
+
+    .gate-question {
+
+      font-size: 16px;
+
+      color: #ffffff;
+
+      text-align: center;
+
+      margin-bottom: 22px;
+
+      line-height: 1.5;
+
+      text-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .gate-buttons {
+
+      display: flex;
+
+      gap: 12px;
+    }
+
+    .gate-buttons button {
+
+      margin-top: 0;
+    }
+
+    .gate-no {
+
+      background: rgba(107, 114, 128, 0.9) !important;
+    }
+
+    .gate-no:hover {
+
+      background: rgba(75, 85, 99, 1) !important;
+    }
+
+    .goodbye {
+
+      text-align: center;
+
+      color: #ffffff;
+
+      font-size: 17px;
+
+      line-height: 1.6;
+
+      text-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .hidden {
+
+      display: none !important;
+    }
+
+
+    /* =========================
+       YES / NO QUESTION GROUPS
+       (bus / beer questions)
+       ========================= */
+
+    .yn-group {
+
+      display: flex;
+
+      gap: 16px;
+
+      margin-top: 8px;
+    }
+
+    .field-hint {
+
+      margin-top: 6px;
+
+      font-size: 12px;
+
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+
+    .yn-option {
+
+      flex: 1;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 6px;
+
+      background: rgba(255, 255, 255, 0.82);
+
+      border: 1px solid rgba(255, 255, 255, 0.65);
+
+      border-radius: 7px;
+
+      padding: 10px;
+
+      font-size: 14px;
+
+      color: #111827;
+
+      cursor: pointer;
+    }
+
+    .yn-option input {
+
+      width: auto;
+
+      margin: 0;
+
+      padding: 0;
+      accent-color: #2563eb;
+    }
+
+    .yn-option.checked {
+
+      background: rgba(255, 255, 255, 0.98);
+
+      border-color: #2563eb;
+
+      box-shadow:
+        0 0 0 2px rgba(37, 99, 235, 0.35);
+    }
+
+
+    /* =========================
        MOBILE
        ========================= */
 
@@ -482,110 +616,300 @@
     </h1>
 
 
-    <!-- Description -->
+    <!-- =========================
+         STEP 1: AVAILABILITY GATE
+         Shown first. The form itself only
+         appears once "Yes" is chosen.
+         ========================= -->
 
-    <div class="sub">
-      Register below — your QR code will be emailed to you.
+    <div id="availability-gate">
+
+      <div class="gate-question">
+        Are you available to attend
+        <b>{{ event_name }}</b>
+        on {{ event_date }}?
+      </div>
+
+      <div class="gate-buttons">
+
+        <button
+          type="button"
+          id="gate-yes"
+        >
+          Yes, I'll be there
+        </button>
+
+        <button
+          type="button"
+          id="gate-no"
+          class="gate-no"
+        >
+          No, I can't make it
+        </button>
+
+      </div>
+
     </div>
 
 
-
     <!-- =========================
-         EVENT INFORMATION
+         SHOWN IF "NO" IS CHOSEN
          ========================= -->
 
-    <div class="event-box">
+    <div id="goodbye-message" class="hidden">
 
-      📅 {{ event_date }}
-
-      &nbsp; | &nbsp;
-
-      📍 {{ event_venue }}
+      <div class="goodbye">
+        😢 We'll miss you!<br>
+        Catch you at the next one.
+      </div>
 
     </div>
 
 
-
     <!-- =========================
-         REGISTRATION FORM
+         STEP 2: REGISTRATION
+         Shown only after "Yes" is chosen.
          ========================= -->
 
-    <form
-      action="{{ url_for('register') }}"
-      method="post"
-    >
+    <div id="registration-content" class="hidden">
 
 
-      <!-- Employee ID -->
+      <!-- Description -->
 
-      <label for="emp_id">
-        Employee ID
-      </label>
+      <div class="sub">
+        Register below — your QR code will be emailed to you.
+      </div>
 
-      <input
-        type="text"
-        id="emp_id"
-        name="emp_id"
-        inputmode="numeric"
-        pattern="[0-9]*"
-        title="Numbers only"
-        required
+
+
+      <!-- =========================
+           EVENT INFORMATION
+           ========================= -->
+
+      <div class="event-box">
+
+        📅 {{ event_date }}
+
+        &nbsp; | &nbsp;
+
+        📍 {{ event_venue }}
+
+      </div>
+
+
+
+      <!-- =========================
+           REGISTRATION FORM
+           ========================= -->
+
+      <form
+        action="{{ url_for('register') }}"
+        method="post"
       >
 
 
+        <!-- Employee ID -->
 
-      <!-- Full Name -->
+        <label for="emp_id">
+          Employee ID
+        </label>
 
-      <label for="name">
-        Full name
-      </label>
-
-      <input
-        type="text"
-        id="name"
-        name="name"
-        required
-      >
-
-
-
-      <!-- Email -->
-
-      <label for="email">
-        Email address
-      </label>
-
-      <input
-        type="email"
-        id="email"
-        name="email"
-        required
-      >
+        <input
+          type="text"
+          id="emp_id"
+          name="emp_id"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          title="Numbers only"
+          required
+        >
 
 
 
-      <!-- Phone -->
+        <!-- Full Name -->
 
-      <label for="phone">
-        Phone (optional)
-      </label>
+        <label for="name">
+          Full name
+        </label>
 
-      <input
-        type="tel"
-        id="phone"
-        name="phone"
-      >
-
-
-
-      <!-- Submit button -->
-
-      <button type="submit">
-        Register &amp; get my QR code
-      </button>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          required
+        >
 
 
-    </form>
+
+        <!-- Email -->
+
+        <label for="email">
+          Email address
+        </label>
+
+        <input
+          type="email"
+          id="email"
+          name="email"
+          required
+        >
+
+
+
+        <!-- Phone -->
+
+        <label for="phone">
+          Phone (optional)
+        </label>
+
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+        >
+
+
+
+        <!-- Bus question -->
+
+        <label>
+          Do you need a bus on event day?
+        </label>
+
+        <div class="yn-group" data-yn-group="needs_bus">
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="needs_bus"
+              value="yes"
+              required
+            >
+            Yes
+          </label>
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="needs_bus"
+              value="no"
+            >
+            No
+          </label>
+
+        </div>
+
+        <div class="field-hint">
+          Bus starts from 7:45 AM.
+          Last bus from T.EN to Resort 8:30 AM.
+        </div>
+
+
+
+        <!-- Breakfast question -->
+
+        <label>
+          Do you need breakfast?
+        </label>
+
+        <div class="yn-group" data-yn-group="needs_breakfast">
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="needs_breakfast"
+              value="yes"
+              required
+            >
+            Yes
+          </label>
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="needs_breakfast"
+              value="no"
+            >
+            No
+          </label>
+
+        </div>
+
+
+
+        <!-- Beer question -->
+
+        <label>
+          Do you need beer?
+        </label>
+
+        <div class="yn-group" data-yn-group="needs_beer">
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="needs_beer"
+              value="yes"
+              required
+            >
+            Yes
+          </label>
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="needs_beer"
+              value="no"
+            >
+            No
+          </label>
+
+        </div>
+
+
+
+        <!-- Veg / Non-veg preference -->
+
+        <label>
+          Food Preference?
+        </label>
+
+        <div class="yn-group" data-yn-group="food_preference">
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="food_preference"
+              value="veg"
+              required
+            >
+            Veg
+          </label>
+
+          <label class="yn-option">
+            <input
+              type="radio"
+              name="food_preference"
+              value="nonveg"
+            >
+            Non-Veg
+          </label>
+
+        </div>
+
+
+
+
+        <!-- Submit button -->
+
+        <button type="submit">
+          Register &amp; get my QR code
+        </button>
+
+
+      </form>
+
+    </div>
 
 
   </div>
@@ -607,6 +931,76 @@
           el.remove();
 
         }, 4600);
+
+      });
+
+  </script>
+
+
+  <!-- =========================
+       AVAILABILITY GATE LOGIC
+       ========================= -->
+
+  <script>
+
+    document
+      .getElementById('gate-yes')
+      .addEventListener('click', function () {
+
+        document
+          .getElementById('availability-gate')
+          .classList.add('hidden');
+
+        document
+          .getElementById('registration-content')
+          .classList.remove('hidden');
+
+      });
+
+    document
+      .getElementById('gate-no')
+      .addEventListener('click', function () {
+
+        document
+          .getElementById('availability-gate')
+          .classList.add('hidden');
+
+        document
+          .getElementById('goodbye-message')
+          .classList.remove('hidden');
+
+      });
+
+  </script>
+
+
+  <!-- =========================
+       HIGHLIGHT SELECTED YES/NO OPTION
+       ========================= -->
+
+  <script>
+
+    document
+      .querySelectorAll('.yn-group')
+      .forEach(function (group) {
+
+        const options = group.querySelectorAll('.yn-option');
+
+        options.forEach(function (option) {
+
+          const input = option.querySelector('input');
+
+          input.addEventListener('change', function () {
+
+            options.forEach(function (o) {
+              o.classList.remove('checked');
+            });
+
+            option.classList.add('checked');
+
+          });
+
+        });
 
       });
 
