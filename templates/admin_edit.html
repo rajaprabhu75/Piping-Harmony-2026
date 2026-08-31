@@ -60,6 +60,37 @@
         {% endfor %}
       </select>
 
+      <label for="needs_bus">Needs bus</label>
+      <select id="needs_bus" name="needs_bus">
+        <option value="no" {% if not participant.needs_bus %}selected{% endif %}>No</option>
+        <option value="yes" {% if participant.needs_bus %}selected{% endif %}>Yes</option>
+      </select>
+
+      <label for="needs_breakfast">Needs breakfast</label>
+      <select id="needs_breakfast" name="needs_breakfast">
+        <option value="no" {% if not participant.needs_breakfast %}selected{% endif %}>No</option>
+        <option value="yes" {% if participant.needs_breakfast %}selected{% endif %}>Yes</option>
+      </select>
+
+      <label for="needs_beer">Needs beer</label>
+      <select id="needs_beer" name="needs_beer">
+        <option value="no" {% if not participant.needs_beer %}selected{% endif %}>No</option>
+        <option value="yes" {% if participant.needs_beer %}selected{% endif %}>Yes</option>
+      </select>
+
+      <label for="beer_received">Beer given</label>
+      <select id="beer_received" name="beer_received">
+        <option value="no" {% if not participant.beer_received %}selected{% endif %}>No</option>
+        <option value="yes" {% if participant.beer_received %}selected{% endif %}>Yes</option>
+      </select>
+
+      <label for="food_preference">Diet preference</label>
+      <select id="food_preference" name="food_preference">
+        <option value="" {% if not participant.food_preference %}selected{% endif %}>N/A</option>
+        <option value="veg" {% if participant.food_preference == 'veg' %}selected{% endif %}>Veg</option>
+        <option value="nonveg" {% if participant.food_preference == 'nonveg' %}selected{% endif %}>Non-Veg</option>
+      </select>
+
       <div class="actions">
         <a href="{{ url_for('admin') }}" class="cancel-link">Cancel</a>
         <button type="submit" class="save-btn">Save changes</button>
