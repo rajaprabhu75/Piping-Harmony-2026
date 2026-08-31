@@ -368,6 +368,10 @@
         Scan station
       </a>
 
+      <a href="{{ url_for('beer_station') }}">
+        Beer station
+      </a>
+
       <a href="{{ url_for('admin_export_excel') }}">
         Export Excel
       </a>
@@ -385,6 +389,35 @@
       </a>
 
     </div>
+
+  </div>
+
+
+  <!-- =========================================================
+       BULK ACTIONS
+       ========================================================= -->
+
+  <div class="toolbar">
+
+    <form
+      method="post"
+      action="{{ url_for('admin_bulk_send') }}"
+      onsubmit="return confirm('Send the QR code email to every participant who doesn\'t have one yet? This runs in the background and may take a while for a large list.');"
+    >
+      <button type="submit" style="background:#0891b2;">
+        📧 Send QR to all pending
+      </button>
+    </form>
+
+    <form
+      method="post"
+      action="{{ url_for('admin_random_split') }}"
+      onsubmit="return confirm('Randomly assign a team to every participant who doesn\'t have one yet?');"
+    >
+      <button type="submit" style="background:#7c3aed;">
+        🎲 Randomly split unassigned into teams
+      </button>
+    </form>
 
   </div>
 
@@ -433,13 +466,15 @@
        SEARCH / FILTER
        ========================================================= -->
 
-  <form class="toolbar" method="get">
+  <form class="toolbar" method="get" id="filter-form">
 
     <input
       type="text"
       name="q"
+      id="search-input"
       placeholder="Search name or email"
       value="{{ q }}"
+      autocomplete="off"
     >
 
     <select name="team">
@@ -502,7 +537,7 @@
 
   {% if participants %}
 
-  <table>
+  <table id="participants-table">
 
     <thead>
 
@@ -514,6 +549,11 @@
         <th>Email</th>
         <th>Phone</th>
         <th>Team</th>
+        <th>Bus</th>
+        <th>Breakfast</th>
+        <th>Beer</th>
+        <th>Beer given</th>
+        <th>Diet</th>
         <th>Registered</th>
         <th>Scanned</th>
         <th>Email sent</th>
@@ -528,7 +568,10 @@
 
       {% for p in participants %}
 
-      <tr>
+      <tr
+        data-name="{{ p.name|lower }}"
+        data-email="{{ p.email|lower }}"
+      >
 
         <td>
           {{ p.id }}
@@ -575,6 +618,35 @@
 
           {% endif %}
 
+        </td>
+
+
+        <td class="{{ 'yes' if p.needs_bus else 'no' }}">
+          {{ 'Yes' if p.needs_bus else 'No' }}
+        </td>
+
+
+        <td class="{{ 'yes' if p.needs_breakfast else 'no' }}">
+          {{ 'Yes' if p.needs_breakfast else 'No' }}
+        </td>
+
+
+        <td class="{{ 'yes' if p.needs_beer else 'no' }}">
+          {{ 'Yes' if p.needs_beer else 'No' }}
+        </td>
+
+
+        <td class="{{ 'yes' if p.beer_received else 'no' }}">
+          {{ 'Yes' if p.beer_received else 'No' }}
+        </td>
+
+
+        <td>
+          {{
+            'Veg' if p.food_preference == 'veg'
+            else 'Non-Veg' if p.food_preference == 'nonveg'
+            else '—'
+          }}
         </td>
 
 
@@ -765,6 +837,30 @@
       </select>
 
 
+      <select name="needs_bus">
+        <option value="no">Bus: No</option>
+        <option value="yes">Bus: Yes</option>
+      </select>
+
+
+      <select name="needs_breakfast">
+        <option value="no">Breakfast: No</option>
+        <option value="yes">Breakfast: Yes</option>
+      </select>
+
+
+      <select name="needs_beer">
+        <option value="no">Beer: No</option>
+        <option value="yes">Beer: Yes</option>
+      </select>
+
+
+      <select name="food_preference">
+        <option value="veg">Diet: Veg</option>
+        <option value="nonveg">Diet: Non-Veg</option>
+      </select>
+
+
       <button type="submit">
         Add participant
       </button>
@@ -851,6 +947,48 @@
         );
 
       });
+
+  </script>
+
+
+  <!-- =========================================================
+       LIVE SEARCH FILTER (filters visible rows as you type,
+       no page reload — server-side "q" param still works too,
+       e.g. on direct links or if JS is disabled)
+       ========================================================= -->
+
+  <script>
+
+    const searchInput = document.getElementById('search-input');
+
+    const table = document.getElementById('participants-table');
+
+    if (searchInput && table) {
+
+      searchInput.addEventListener('input', function () {
+
+        const term = searchInput.value.trim().toLowerCase();
+
+        const rows = table.querySelectorAll('tbody tr');
+
+        rows.forEach(function (row) {
+
+          const name = row.dataset.name || '';
+          const email = row.dataset.email || '';
+
+          const matches = (
+            !term ||
+            name.includes(term) ||
+            email.includes(term)
+          );
+
+          row.style.display = matches ? '' : 'none';
+
+        });
+
+      });
+
+    }
 
   </script>
 
