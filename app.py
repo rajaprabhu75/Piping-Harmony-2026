@@ -77,6 +77,13 @@ BASE_URL = os.environ.get('BASE_URL', 'http://127.0.0.1:5000')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 
+# Email domains allowed to self-register. A tuple works directly with
+# str.endswith(), and keeping it here (next to the other event config)
+# means adding another allowed domain later is a one-line change instead
+# of hunting through the register() view.
+ALLOWED_EMAIL_DOMAINS = ('@ten.com', '@external.ten.com')
+
+
 # ---------------- TEAM CONFIGURATION ----------------
 #
 # Six teams for Piping Harmony 2026.
@@ -341,7 +348,7 @@ def send_qr_email(participant: 'Participant') -> bool:
         </p>
 
         <p>
-          Your unique QR code is attached to this email. Please bring it
+          Your <b>unique QR code</b> is attached to this email. Please bring it
           (on your phone or printed) on event day. Any organizer can scan it
           and you'll be automatically assigned to a team.
         </p>
@@ -349,6 +356,7 @@ def send_qr_email(participant: 'Participant') -> bool:
         <p><b>Your registration code:</b> {participant.id}</p>
 
         <p>See you there!</p>
+        <p>Piping Harmony 2026 – Organizing Committee</p>
       </body>
     </html>
     """
@@ -656,10 +664,11 @@ def register():
 
         return redirect(url_for('index'))
 
-    if not email.endswith('@ten.com'):
+    if not email.endswith(ALLOWED_EMAIL_DOMAINS):
 
         flash(
-            'Please register with your @ten.com email address.',
+            'Please register with your @ten.com or @external.ten.com '
+            'email address.',
             'error'
         )
 
